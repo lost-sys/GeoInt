@@ -685,7 +685,7 @@ function editRole(r){editingRole=r;$('#roleName').value=r.name;$('#roleColor').v
 $('#newRole').onclick=()=>editRole({id:null,name:'Nouveau rôle',color:'#5aa9ff',permissions:[]});
 $('#roleSave').onclick=async()=>{const payload={name:$('#roleName').value.trim(),color:$('#roleColor').value,permissions:[...$('#permList').querySelectorAll('[data-perm]:checked')].map(x=>x.dataset.perm)};try{await api(editingRole.id?'/api/roles/'+editingRole.id:'/api/roles',{method:editingRole.id?'PATCH':'POST',body:JSON.stringify(payload)});$('#roleDlg').close();refreshManagement();toast('Rôle enregistré')}catch(e){toast(e.message)}};
 $('#roleCancel').onclick=()=>$('#roleDlg').close();
-document.querySelector('[data-t=manage]').onclick=()=>refreshManagement();
+// Le clic Gestion est déjà géré par le gestionnaire global des onglets ci-dessus.
 /* ---------- Graphe ---------- */
 const TYPES={Personne:['#ff5d5d','dot'],Compte:['#7a86ff','dot'],IP:['#3ddc97','database'],Lieu:['#ffb020','diamond'],Organisation:['#5aa9ff','square'],Document:['#c792ea','box']};
 const SHAPES={dot:'Rond',square:'Carré',diamond:'Losange',triangle:'Triangle',star:'Étoile',hexagon:'Hexagone',database:'Base de données',box:'Boîte'};
