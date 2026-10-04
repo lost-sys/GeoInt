@@ -8,8 +8,18 @@ const DB = fs.existsSync(FILE) ? JSON.parse(fs.readFileSync(FILE, 'utf8')) : {};
 DB.users ??= {}; DB.sessions ??= {}; DB.records ??= []; DB.logs ??= []; DB.chat ??= {}; DB.updates ??= [
   { id: 'u1', ts: Date.now(), author: 'Lost', title: 'GeoInt v8', text: 'Ajout des comptes sécurisés, chat multi-salons, enregistrements serveur, épinglage et installation en application.', pinned: true }
 ]; DB.seq ??= 0;
+DB.roles ??= [
+  { id:'owner', name:'Propriétaire', color:'#ff5d5d', position:100, permissions:['*'] },
+  { id:'admin', name:'Administrateur', color:'#ff8a3d', position:80, permissions:['manage_roles','manage_users','moderate_chat','post_announcements','pin_records','publish_updates','view_logs'] },
+  { id:'mod', name:'Modérateur', color:'#5aa9ff', position:60, permissions:['moderate_chat','view_logs'] },
+  { id:'investigator', name:'Enquêteur', color:'#ffb020', position:40, permissions:['pin_records'] },
+  { id:'member', name:'Membre', color:'#8b96a3', position:10, permissions:[] }
+];
+Object.values(DB.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; });
+DB.users.lost && (DB.users.lost.roles=['owner']);
 let tm; const save = () => { clearTimeout(tm); tm = setTimeout(() => fs.writeFileSync(FILE, JSON.stringify(DB)), 300); };
-const ROOMS = { annonces: { admin: true }, general: {}, recrutement: {}, aide: {}, trouvailles: {} };
+const ROOMS = { annonces: { perm:'post_announcements' }, general: {}, recrutement: {}, aide: {}, trouvailles: {} };
+const ROLE_PERMS = ['manage_roles','manage_users','moderate_chat','post_announcements','pin_records','publish_updates','view_logs'];
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const hash = (p, s) => crypto.scryptSync(p, s, 32).toString('hex');
 const norm = p => p.toLowerCase().replace(/0/g, 'o').replace(/[1i|!]/g, 'l').replace(/5/g, 's').replace(/[_-]/g, '');
@@ -20,14 +30,18 @@ const log = (author, action, rec, detail) => { DB.logs.push({ ts: Date.now(), au
 const body = req => new Promise((ok, ko) => { let b = '', n = 0;
   req.on('data', c => { n += c.length; if (n > 3e6) { ko(E(413, 'Contenu trop volumineux')); req.destroy(); } else b += c; });
   req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch { ko(E(400, 'JSON invalide')); } }); });
+const roleById = id => DB.roles.find(r => r.id === id);
+const userRoles = u => (u?.roles || ['member']).map(roleById).filter(Boolean).sort((a,b)=>b.position-a.position);
+const hasPerm = (u, perm) => u?.key === 'lost' || userRoles(u).some(r => r.permissions.includes('*') || r.permissions.includes(perm));
+const roleView = r => ({id:r.id,name:r.name,color:r.color,position:r.position,permissions:r.permissions});
 const authUser = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''), s = DB.sessions[sha(t)];
-  if (!t || !s || s.exp < Date.now() || !DB.users[s.u]) return null; return { key: s.u, name: DB.users[s.u].name, admin: s.u === 'lost' }; };
+  if (!t || !s || s.exp < Date.now() || !DB.users[s.u]) return null; const u=DB.users[s.u]; return { key:s.u, name:u.name, admin:s.u==='lost', roles:userRoles({...u,key:s.u}), permissions:u?.roles?.flatMap(id=>roleById(id)?.permissions||[])||[] }; };
 const fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
 const bad = k => { const f = fails[k] = fails[k] && Date.now() - fails[k].t < 60000 ? fails[k] : { n: 0 }; f.n++; f.t = Date.now(); };
 const lastMsg = {};
 const STATIC = { '/': ['geoint-v7.html', 'text/html; charset=utf-8'], '/index.html': ['geoint-v7.html', 'text/html; charset=utf-8'], '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
   '/sw.js': ['sw.js', 'text/javascript'], '/icon.svg': ['icon.svg', 'image/svg+xml'], '/icon-192.png': ['icon-192.png', 'image/png'], '/icon-512.png': ['icon-512.png', 'image/png'] };
-const token = (res, key) => { const t = crypto.randomBytes(32).toString('hex'); DB.sessions[sha(t)] = { u: key, exp: Date.now() + 30 * 864e5 }; save(); J(res, 200, { token: t, name: DB.users[key].name, admin: key === 'lost' }); };
+const token = (res, key) => { const t = crypto.randomBytes(32).toString('hex'); DB.sessions[sha(t)] = { u: key, exp: Date.now() + 30 * 864e5 }; save(); J(res, 200, { token:t, name:DB.users[key].name, admin:key==='lost', roles:userRoles({...DB.users[key],key}).map(roleView) }); };
 
 http.createServer(async (req, res) => {
   try {
@@ -46,7 +60,7 @@ http.createServer(async (req, res) => {
       if (key === 'lost') { if (!ADMIN_CODE || sha(String(B.adminCode || '')) !== sha(ADMIN_CODE)) throw E(403, 'Ce pseudo est réservé au créateur du site'); }
       else if (norm(name) === 'lost' || /admin|staff|moderat/i.test(name)) throw E(403, 'Ce pseudo est réservé');
       if (DB.users[key]) throw E(409, 'Ce pseudo est déjà pris');
-      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now() };
+      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'] };
       log(name, 'inscription'); return token(res, key);
     }
     if (p === '/api/login' && m === 'POST') {
@@ -57,7 +71,14 @@ http.createServer(async (req, res) => {
       return token(res, key);
     }
     const me = authUser(req); if (!me) throw E(401, 'Connexion requise');
-    if (p === '/api/me') return J(res, 200, { name: me.name, admin: me.admin });
+    if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)] });
+    if (p === '/api/roles' && m === 'GET') return J(res,200,DB.roles.slice().sort((a,b)=>b.position-a.position).map(roleView));
+    if (p === '/api/roles' && m === 'POST') { if(!hasPerm(me,'manage_roles')) throw E(403,'Permission requise : gérer les rôles'); const name=String(B.name||'').trim().slice(0,30), color=/^#[0-9a-f]{6}$/i.test(B.color)?B.color:'#8b96a3', permissions=Array.isArray(B.permissions)?B.permissions.filter(x=>ROLE_PERMS.includes(x)):[]; if(!name) throw E(400,'Nom du rôle requis'); const id='r_'+crypto.randomBytes(5).toString('hex'); const max=Math.max(0,...DB.roles.map(r=>r.position)); DB.roles.push({id,name,color,position:Math.min(99,max+1),permissions}); save(); return J(res,200,roleView(DB.roles.at(-1))); }
+    if (p.startsWith('/api/roles/') && m === 'PATCH') { if(!hasPerm(me,'manage_roles')) throw E(403,'Permission requise : gérer les rôles'); const id=p.split('/')[3], role=roleById(id); if(!role||['owner','member'].includes(id)) throw E(404,'Rôle non modifiable'); if(B.name!==undefined) role.name=String(B.name).trim().slice(0,30)||role.name; if(/^#[0-9a-f]{6}$/i.test(B.color||'')) role.color=B.color; if(Array.isArray(B.permissions)) role.permissions=B.permissions.filter(x=>ROLE_PERMS.includes(x)); save(); return J(res,200,roleView(role)); }
+    if (p.startsWith('/api/roles/') && m === 'DELETE') { if(!hasPerm(me,'manage_roles')) throw E(403,'Permission requise : gérer les rôles'); const id=p.split('/')[3]; if(['owner','admin','mod','investigator','member'].includes(id)) throw E(400,'Ce rôle système ne peut pas être supprimé'); const i=DB.roles.findIndex(r=>r.id===id); if(i<0) throw E(404,'Rôle introuvable'); DB.roles.splice(i,1); Object.values(DB.users).forEach(u=>u.roles=(u.roles||[]).filter(x=>x!==id).concat((u.roles||[]).filter(x=>x==='member').length?[]:['member'])); save(); return J(res,200,{ok:true}); }
+    if (p === '/api/users' && m === 'GET') { if(!hasPerm(me,'manage_users')) throw E(403,'Permission requise : gérer les utilisateurs'); return J(res,200,Object.entries(DB.users).map(([key,u])=>({key,name:u.name,roles:userRoles({...u,key}).map(roleView),created:u.created}))); }
+    let ur=p.match(/^\/api\/users\/([^/]+)\/roles$/); if(ur && m==='POST'){ if(!hasPerm(me,'manage_users')) throw E(403,'Permission requise : gérer les utilisateurs'); const key=decodeURIComponent(ur[1]).toLowerCase(), u=DB.users[key]; if(!u) throw E(404,'Utilisateur introuvable'); if(key==='lost') throw E(400,'Le propriétaire garde son rôle'); const roles=Array.isArray(B.roles)?B.roles.filter(id=>roleById(id)&&id!=='owner') : ['member']; u.roles=roles.length?roles:['member']; save(); return J(res,200,{ok:true,name:u.name,roles:userRoles({...u,key}).map(roleView)}); }
+
     /* ---- chat ---- */
     let r = p.match(/^\/api\/chat\/(\w+)(?:\/(\d+))?$/);
     if (r) {
@@ -65,17 +86,17 @@ http.createServer(async (req, res) => {
       if (m === 'GET') { const since = +u.searchParams.get('since') || 0; return J(res, 200, list.filter(x => x.id > since).slice(-200)); }
       if (m === 'POST') {
         const text = String(B.text || '').trim().slice(0, 500); if (!text) throw E(400, 'Message vide');
-        if (room.admin && !me.admin) throw E(403, 'Seul le créateur peut écrire ici');
+        if (room.perm && !hasPerm(me,room.perm)) throw E(403, 'Permission insuffisante pour ce salon');
         if (Date.now() - (lastMsg[me.key] || 0) < 800) throw E(429, 'Doucement !'); lastMsg[me.key] = Date.now();
-        list.push({ id: ++DB.seq, ts: Date.now(), u: me.name, admin: me.admin, text }); DB.chat[r[1]] = list.slice(-500); save(); return J(res, 200, { ok: true });
+        list.push({ id: ++DB.seq, ts: Date.now(), u: me.name, admin: me.admin, roles:me.roles.map(roleView), text }); DB.chat[r[1]] = list.slice(-500); save(); return J(res, 200, { ok: true });
       }
       if (m === 'DELETE' && r[2]) { const i = list.findIndex(x => x.id === +r[2]); if (i < 0) throw E(404, 'Introuvable');
-        if (!me.admin && list[i].u !== me.name) throw E(403, 'Interdit'); list.splice(i, 1); save(); return J(res, 200, { ok: true }); }
+        if (!hasPerm(me,'moderate_chat') && list[i].u !== me.name) throw E(403, 'Interdit'); list.splice(i, 1); save(); return J(res, 200, { ok: true }); }
     }
     /* ---- mises à jour ---- */
     if (p === '/api/updates' && m === 'GET') return J(res, 200, DB.updates.slice().sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.ts-a.ts));
     if (p === '/api/updates' && m === 'POST') {
-      if (!me.admin) throw E(403, 'Seul le créateur peut publier des mises à jour');
+      if (!hasPerm(me,'publish_updates')) throw E(403, 'Permission insuffisante : publier des mises à jour');
       const title = String(B.title || '').trim().slice(0, 80), text = String(B.text || '').trim().slice(0, 2000);
       if (!title || !text) throw E(400, 'Titre et texte requis');
       DB.updates.unshift({ id: crypto.randomUUID(), ts: Date.now(), author: me.name, title, text, pinned: !!B.pinned });
@@ -94,17 +115,17 @@ http.createServer(async (req, res) => {
     r = p.match(/^\/api\/records\/([\w-]+)(\/pin)?$/);
     if (r) {
       const rec = DB.records.find(x => x.id === r[1]); if (!rec) throw E(404, 'Introuvable');
-      if (r[2] && m === 'POST') { if (!me.admin) throw E(403, 'Réservé au créateur'); rec.pinned = !!B.pinned; log(me.name, rec.pinned ? 'épinglé' : 'désépinglé', rec); return J(res, 200, { ok: true }); }
+      if (r[2] && m === 'POST') { if (!hasPerm(me,'pin_records')) throw E(403, 'Permission insuffisante : épingler'); rec.pinned = !!B.pinned; log(me.name, rec.pinned ? 'épinglé' : 'désépinglé', rec); return J(res, 200, { ok: true }); }
       if (rec.author !== me.name) { log(me.name, 'accès refusé', rec, 'tentative sur un enregistrement privé'); throw E(403, 'Accès réservé au propriétaire'); }
       if (m === 'GET') return J(res, 200, { type: rec.type, title: rec.title, salt: rec.salt, iv: rec.iv, data: rec.data });
       if (m === 'DELETE') { DB.records = DB.records.filter(x => x !== rec); log(me.name, 'suppression', rec); return J(res, 200, { ok: true }); }
     }
     /* ---- journal ---- */
-    if (p === '/api/logs' && m === 'GET') return J(res, 200, DB.logs.slice(-300));
+    if (p === '/api/logs' && m === 'GET') { if(!hasPerm(me,'view_logs')) throw E(403,'Permission insuffisante : voir les logs'); return J(res,200,DB.logs.slice(-300)); }
     if (p === '/api/log' && m === 'POST') {
       if (!['analyse', 'accès refusé', 'ouverture'].includes(B.action)) throw E(400, 'Action inconnue');
       log(me.name, B.action, { title: String(B.title || '').slice(0, 80) }, B.detail); return J(res, 200, { ok: true });
     }
     throw E(404, 'Route inconnue');
   } catch (e) { J(res, e.code && e.code < 600 ? e.code : 500, { error: e.code && e.code < 600 ? e.message : 'Erreur serveur' }); }
-}).listen(PORT, () => console.log(`GeoInt prêt sur http://localhost:${PORT}` + (ADMIN_CODE ? '' : '  (⚠ ADMIN_CODE non défini : le compte Lost ne pourra pas être créé)')));
+}).listen(PORT, '0.0.0.0', () => console.log(`GeoInt prêt sur http://localhost:${PORT}` + (ADMIN_CODE ? '' : '  (⚠ ADMIN_CODE non défini : le compte Lost ne pourra pas être créé)')));
