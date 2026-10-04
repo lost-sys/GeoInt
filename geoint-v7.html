@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0d10">
-<title>GeoInt v8 — Image, Carte, Graphe, Chat</title>
+<title>GeoInt v9 — Image, Carte, Graphe, Chat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -65,6 +65,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 .badge{display:inline-block;padding:2px 7px;border-radius:99px;background:var(--acc);color:#111;font-size:10px;font-weight:700}
 .pinMark{color:var(--acc);font-size:12px}
 .authTabs{display:flex;gap:6px;margin-bottom:12px}
+.roleTag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;border:1px solid currentColor;margin-left:5px}.roleAdminGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.permGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}.userRow{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:7px}
 .authTabs button.on{background:var(--acc);color:#111}
 #installBtn{display:none}
 @media(max-width:800px){#t-chat{grid-template-columns:1fr;grid-template-rows:auto 1fr}.chatRooms{flex-direction:row;overflow:auto}.chatRooms button{white-space:nowrap}}
@@ -73,9 +74,9 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 </head>
 <body>
 <header>
-  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v8</span></h1>
+  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v9</span></h1>
   <nav role="tablist">
-    <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button>
+    <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
   </nav>
   <button id="installBtn">⬇ Installer</button><button id="userBtn">👤 Connexion</button><button id="keyBtn">🔑 IA & clés</button>
 </header>
@@ -153,6 +154,18 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
   </div>
 </section>
 
+<section id="t-manage" class="tab">
+  <div class="card" style="overflow:auto">
+    <div class="bar2"><h3 style="margin:0">Gestion du serveur</h3><span class="badge">RÔLES & UTILISATEURS</span></div>
+    <div class="roleAdminGrid" style="margin-top:12px">
+      <div class="card"><h3>Rôles</h3><div id="roleList"></div><button id="newRole" class="pri">+ Créer un rôle</button></div>
+      <div class="card"><h3>Utilisateurs</h3><div id="userList"></div></div>
+    </div>
+  </div>
+</section>
+
+<dialog id="roleDlg"><h3>Rôle</h3><div class="fg"><span class="k">Nom</span><input id="roleName" maxlength="30" placeholder="Ex. Modérateur"></div><div class="fg"><span class="k">Couleur</span><input id="roleColor" type="color" value="#5aa9ff"></div><h3>Permissions</h3><div id="permList" class="permGrid"></div><div class="bar2"><button id="roleSave" class="pri">Enregistrer</button><button id="roleCancel">Annuler</button></div></dialog>
+
 </main>
 
 <dialog id="authDlg">
@@ -205,7 +218,7 @@ const $=s=>document.querySelector(s);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').style.display='inline-block'});
 $('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch{}deferredInstall=null;$('#installBtn').style.display='none'};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=9').then(reg=>reg.update()).catch(()=>{}));
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
@@ -221,6 +234,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   if(b.dataset.t==='rec')renderRec();
   if(b.dataset.t==='chat'){loadChat();$('#chatWho').textContent=getUser()?('Connecté : '+getUser()):'Non connecté'}
   if(b.dataset.t==='updates')renderUpdates();
+  if(b.dataset.t==='manage')refreshManagement();
   if(b.dataset.t==='graph'){initGraph();setTimeout(()=>{net.setSize('100%','100%');net.redraw();net.fit()},60)}
 });
 
@@ -508,7 +522,7 @@ $('#toGraph').onclick=async()=>{
 /* ---------- Compte, enregistrements serveur, chat et mises à jour ---------- */
 const API_BASE='';
 let sessionToken=localStorage.getItem('geoint_token')||'';
-let currentRoom='general', chatTimer=null, authMode='login';
+let currentRoom='general', chatTimer=null, authMode='login', myRoles=[], myPermissions=[];
 
 const api=async(path,opts={})=>{
   const headers={'Content-Type':'application/json',...(opts.headers||{})};
@@ -520,7 +534,10 @@ const api=async(path,opts={})=>{
 };
 const getUser=()=>localStorage.getItem('geoint_user')||'';
 const isAdmin=()=>localStorage.getItem('geoint_admin')==='1';
-const refreshUser=()=>$('#userBtn').textContent=sessionToken?'👤 '+(getUser()||'Profil'):'👤 Connexion';
+const hasPermission=p=>isAdmin()||myPermissions.includes('*')||myPermissions.includes(p);
+const roleHtml=roles=>(roles||[]).map(r=>`<span class="roleTag" style="color:${esc(r.color)}">${esc(r.name)}</span>`).join('');
+const canManage=()=>hasPermission('manage_roles')||hasPermission('manage_users');
+const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display=sessionToken&&canManage()?'inline-block':'none'};
 const ensureUser=async()=>{if(sessionToken)return getUser();openAuth('login');return ''};
 
 function openAuth(mode='login'){
@@ -537,7 +554,7 @@ function openAuth(mode='login'){
 $('#loginTab').onclick=()=>openAuth('login');$('#registerTab').onclick=()=>openAuth('register');
 $('#authPseudo').oninput=()=>{if(authMode==='register')$('#adminCodeRow').style.display=$('#authPseudo').value.trim().toLowerCase()==='lost'?'grid':'none'};
 $('#authClose').onclick=()=>$('#authDlg').close();
-$('#logoutBtn').onclick=()=>{sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
+$('#logoutBtn').onclick=()=>{sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
 $('#authOk').onclick=async()=>{
   const pseudo=$('#authPseudo').value.trim(),password=$('#authPassword').value;
   $('#authNote').style.display='none';
@@ -546,11 +563,11 @@ $('#authOk').onclick=async()=>{
       const password2=$('#authPassword2').value;
       if(password!==password2)throw new Error('Les deux mots de passe diffèrent');
       const j=await api('/api/register',{method:'POST',body:JSON.stringify({pseudo,password,adminCode:$('#authAdmin').value})});
-      sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');
+      sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0'); myRoles=j.roles||[]; myPermissions=myRoles.flatMap(r=>r.permissions||[]);
       toast('Compte créé · bienvenue '+j.name);
     }else{
       const j=await api('/api/login',{method:'POST',body:JSON.stringify({pseudo,password})});
-      sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');
+      sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0'); myRoles=j.roles||[]; myPermissions=myRoles.flatMap(r=>r.permissions||[]);
       toast('Connexion réussie');
     }
     refreshUser();$('#authDlg').close();renderRec();
@@ -558,7 +575,7 @@ $('#authOk').onclick=async()=>{
 };
 $('#userBtn').onclick=()=>openAuth(sessionToken?'login':'login');
 refreshUser();
-if(sessionToken){api('/api/me').then(j=>{localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');refreshUser()}).catch(()=>{sessionToken='';localStorage.removeItem('geoint_token');refreshUser()})}
+if(sessionToken){api('/api/me').then(j=>{localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');myRoles=j.roles||[];myPermissions=j.permissions||[];refreshUser();refreshManagement()}).catch(()=>{sessionToken='';localStorage.removeItem('geoint_token');refreshUser()})}
 
 function log(action,rec,detail){
   if(!sessionToken)return;
@@ -622,13 +639,14 @@ async function loadChat(){
   if(!sessionToken){$('#chatMessages').innerHTML='<div style="color:var(--mut)">Connecte-toi pour utiliser le chat.</div>';return}
   try{
     const msgs=await api('/api/chat/'+currentRoom);
-    $('#chatMessages').innerHTML=msgs.map(m=>`<div class="chatMsg"><div class="meta"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''} · ${new Date(m.ts).toLocaleString('fr-FR')} ${m.u===getUser()||isAdmin()?`<button data-cdel="${m.id}" style="float:right;padding:2px 6px">×</button>`:''}</div><div class="body">${esc(m.text)}</div></div>`).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
+    $('#chatMessages').innerHTML=msgs.map(m=>`<div class="chatMsg"><div class="meta"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''}${roleHtml(m.roles)} · ${new Date(m.ts).toLocaleString('fr-FR')} ${m.u===getUser()||isAdmin()?`<button data-cdel="${m.id}" style="float:right;padding:2px 6px">×</button>`:''}</div><div class="body">${esc(m.text)}</div></div>`).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
     $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
     $('#chatMessages').querySelectorAll('[data-cdel]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+currentRoom+'/'+b.dataset.cdel,{method:'DELETE'});loadChat()}catch(e){toast(e.message)}});
   }catch(e){toast(e.message)}
 }
 async function sendChat(){
   if(!sessionToken){openAuth('login');return}
+  if(currentRoom==='annonces'&&!hasPermission('post_announcements'))return toast('Tu n’as pas la permission de publier des annonces');
   const text=$('#chatInput').value.trim();if(!text)return;
   try{await api('/api/chat/'+currentRoom,{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}
 }
@@ -655,6 +673,19 @@ async function renderUpdates(){
   }catch(e){$('#updatesList').innerHTML='<div class="warn">'+esc(e.message)+'</div>'}
 }
 
+/* ---------- Gestion des rôles ---------- */
+const PERMS={manage_roles:'Gérer les rôles',manage_users:'Gérer les utilisateurs',moderate_chat:'Modérer le chat',post_announcements:'Publier des annonces',pin_records:'Épingler des enregistrements',publish_updates:'Publier des mises à jour',view_logs:'Voir les logs'};
+let editingRole=null;
+async function refreshManagement(){ if(!sessionToken||!canManage())return; try{ const roles=await api('/api/roles'); const users=hasPermission('manage_users')?await api('/api/users'):[]; $('#roleList').innerHTML=roles.map(r=>`<div class="userRow"><b style="color:${esc(r.color)}">${esc(r.name)}</b><div style="font-size:11px;color:var(--mut)">${r.permissions.includes('*')?'Toutes les permissions':r.permissions.map(p=>PERMS[p]||p).join(' · ')||'Aucune permission'}</div>${!['owner','admin','mod','investigator','member'].includes(r.id)&&hasPermission('manage_roles')?`<button data-re="${r.id}" style="margin-top:6px">Modifier</button><button data-rd="${r.id}" style="margin-top:6px">Supprimer</button>`:''}</div>`).join('');
+ $('#roleList').querySelectorAll('[data-re]').forEach(b=>b.onclick=()=>editRole(roles.find(r=>r.id===b.dataset.re))); $('#roleList').querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('Supprimer ce rôle ?')){try{await api('/api/roles/'+b.dataset.rd,{method:'DELETE'});refreshManagement()}catch(e){toast(e.message)}}});
+ $('#userList').innerHTML=users.map(u=>`<div class="userRow"><b>${esc(u.name)}</b>${roleHtml(u.roles)}<div style="margin-top:7px"><select data-ur="${esc(u.key)}" multiple size="${Math.min(5,Math.max(2,roles.length))}" style="width:100%">${roles.filter(r=>r.id!=='owner').map(r=>`<option value="${r.id}" ${u.roles.some(x=>x.id===r.id)?'selected':''}>${esc(r.name)}</option>`).join('')}</select><button data-us="${esc(u.key)}" class="pri" style="margin-top:6px">Appliquer les rôles</button></div></div>`).join('')||'<span style="color:var(--mut)">Permission insuffisante ou aucun utilisateur.</span>';
+ $('#userList').querySelectorAll('[data-us]').forEach(b=>b.onclick=async()=>{const s=$(`[data-ur=\"${CSS.escape(b.dataset.us)}\"]`);const roles=[...s.selectedOptions].map(o=>o.value);try{await api('/api/users/'+encodeURIComponent(b.dataset.us)+'/roles',{method:'POST',body:JSON.stringify({roles})});toast('Rôles appliqués');refreshManagement()}catch(e){toast(e.message)}});
+ }catch(e){toast(e.message)} }
+function editRole(r){editingRole=r;$('#roleName').value=r.name;$('#roleColor').value=r.color;$('#permList').innerHTML=Object.entries(PERMS).map(([k,v])=>`<label><input type="checkbox" data-perm="${k}" ${r.permissions.includes(k)?'checked':''}> ${v}</label>`).join('');$('#roleDlg').showModal()}
+$('#newRole').onclick=()=>editRole({id:null,name:'Nouveau rôle',color:'#5aa9ff',permissions:[]});
+$('#roleSave').onclick=async()=>{const payload={name:$('#roleName').value.trim(),color:$('#roleColor').value,permissions:[...$('#permList').querySelectorAll('[data-perm]:checked')].map(x=>x.dataset.perm)};try{await api(editingRole.id?'/api/roles/'+editingRole.id:'/api/roles',{method:editingRole.id?'PATCH':'POST',body:JSON.stringify(payload)});$('#roleDlg').close();refreshManagement();toast('Rôle enregistré')}catch(e){toast(e.message)}};
+$('#roleCancel').onclick=()=>$('#roleDlg').close();
+document.querySelector('[data-t=manage]').onclick=()=>refreshManagement();
 /* ---------- Graphe ---------- */
 const TYPES={Personne:['#ff5d5d','dot'],Compte:['#7a86ff','dot'],IP:['#3ddc97','database'],Lieu:['#ffb020','diamond'],Organisation:['#5aa9ff','square'],Document:['#c792ea','box']};
 const SHAPES={dot:'Rond',square:'Carré',diamond:'Losange',triangle:'Triangle',star:'Étoile',hexagon:'Hexagone',database:'Base de données',box:'Boîte'};
