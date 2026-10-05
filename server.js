@@ -86,7 +86,7 @@ const voiceSignals = new Map();
 const channelById = id => DB.channels.find(c=>c.id===id);
 const voiceRoom = id => { if(!VOICE.has(id)) VOICE.set(id,new Map()); return VOICE.get(id); };
 const signalRoom = id => { if(!voiceSignals.has(id)) voiceSignals.set(id,[]); return voiceSignals.get(id); };
-const pruneVoice = id => { const room=VOICE.get(id); if(!room)return; const now=Date.now(); for(const [k,v] of room) if(now-v.lastSeen>15000) room.delete(k); const sig=signalRoom(id); voiceSignals.set(id,sig.filter(x=>now-x.ts<30000)); };
+const pruneVoice = id => { const room=VOICE.get(id); if(!room)return; const now=Date.now(); for(const [k,v] of room) if(now-v.lastSeen>6000) room.delete(k); const sig=signalRoom(id); voiceSignals.set(id,sig.filter(x=>now-x.ts<30000)); };
 const safeId = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9-]+/g,'-').replace(/^-+|-+$/g,'').slice(0,32) || 'salon';
 const filterProfanity = text => { const words=['putain','merde','connard','connasse','encule','enculé','enculer','enculée','salope','pute','batard','bâtard','fils de pute','trou du cul','va te faire foutre','nique ta mère','nique ta mere','bite','couille','couilles','branleur','branleuse']; let out=text; for(const w of words){ const re=new RegExp('(?<![A-Za-zÀ-ÿ])'+w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?![A-Za-zÀ-ÿ])','giu'); out=out.replace(re,m=>'*'.repeat(m.length)); } return out; };
 
