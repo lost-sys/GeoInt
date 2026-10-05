@@ -80,3 +80,14 @@ V10.1 - comptes
 - Un utilisateur connecté ne voit plus la fenêtre de connexion lorsqu’il clique sur son compte : un menu propose Changer de compte ou Se déconnecter.
 - Le changement de compte ouvre uniquement la connexion.
 - Le serveur limite strictement le nombre total de comptes à 3.
+
+
+GeoInt v11 — Chat & Vocal
+- Salons texte dynamiques et salons vocaux.
+- Vocal WebRTC P2P avec micro, mute, casque/deafen et modération serveur.
+- Gestion des salons : créer, renommer, lecture seule, supprimer (avec protections système).
+- Gestion avancée des rôles : nom, couleur, position, affichage séparé, mentions et permissions.
+- Modération : timeout temporaire du chat, mute/deafen vocal.
+- Filtre automatique des gros mots : remplacement par des étoiles côté serveur.
+- La signalisation vocale est éphémère et n'est pas enregistrée dans Supabase.
+- Le reste des données persistantes continue d'utiliser Supabase.
