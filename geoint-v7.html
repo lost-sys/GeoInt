@@ -170,6 +170,11 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 
 <dialog id="authDlg">
   <h3 id="authTitle">Connexion</h3>
+  <div id="accountMenu" style="display:none">
+    <p id="accountMenuText" style="color:var(--mut)"></p>
+    <div class="bar2"><button id="changeAccountBtn" class="pri" type="button">Changer de compte</button><button id="menuLogoutBtn" type="button">Se déconnecter</button></div>
+  </div>
+  <div id="authForm">
   <div class="authTabs"><button id="loginTab" class="on" type="button">Connexion</button><button id="registerTab" type="button">Créer un compte</button></div>
   <div class="fg"><span class="k">Pseudo</span><input id="authPseudo" autocomplete="username" maxlength="20" placeholder="Ton pseudo"></div>
   <div class="fg" id="adminCodeRow" style="display:none"><span class="k">Code créateur</span><input id="authAdmin" type="password" autocomplete="off" placeholder="Uniquement pour Lost"></div>
@@ -177,6 +182,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
   <div class="fg" id="authPassword2Row" style="display:none"><span class="k">Confirmer</span><input id="authPassword2" type="password" autocomplete="new-password"></div>
   <p id="authNote" class="warn" style="display:none"></p>
   <div class="bar2"><button id="authOk" class="pri" type="button">Se connecter</button><button id="authClose" type="button">Fermer</button><button id="logoutBtn" type="button" style="display:none">Se déconnecter</button></div>
+  </div>
 </dialog>
 
 <dialog id="dlg" style="max-height:90vh;overflow:auto"><form method="dialog"><h3>IA & clés API</h3>
@@ -218,7 +224,7 @@ const $=s=>document.querySelector(s);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').style.display='inline-block'});
 $('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch{}deferredInstall=null;$('#installBtn').style.display='none'};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=9').then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=10').then(reg=>reg.update()).catch(()=>{}));
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
@@ -542,19 +548,31 @@ const ensureUser=async()=>{if(sessionToken)return getUser();openAuth('login');re
 
 function openAuth(mode='login'){
   authMode=mode;const d=$('#authDlg');
+  $('#accountMenu').style.display='none';$('#authForm').style.display='block';
   $('#loginTab').classList.toggle('on',mode==='login');$('#registerTab').classList.toggle('on',mode==='register');
   $('#authOk').textContent=mode==='login'?'Se connecter':'Créer le compte';
   $('#authTitle').textContent=mode==='login'?'Connexion':'Créer un compte';
   $('#authPassword2Row').style.display=mode==='register'?'grid':'none';
   $('#adminCodeRow').style.display=(mode==='register'&&$('#authPseudo').value.trim().toLowerCase()==='lost')?'grid':'none';
-  $('#logoutBtn').style.display=sessionToken?'inline-block':'none';
+  $('#logoutBtn').style.display='none';
   $('#authNote').style.display='none';$('#authNote').textContent='';
   d.showModal();setTimeout(()=>$('#authPseudo').focus(),50);
+}
+function openAccountMenu(){
+  const d=$('#authDlg');
+  $('#authTitle').textContent='Mon compte';
+  $('#authForm').style.display='none';
+  $('#accountMenu').style.display='block';
+  $('#accountMenuText').textContent='Connecté en tant que '+(getUser()||'Utilisateur')+'. Tu peux changer de compte ou te déconnecter.';
+  d.showModal();
 }
 $('#loginTab').onclick=()=>openAuth('login');$('#registerTab').onclick=()=>openAuth('register');
 $('#authPseudo').oninput=()=>{if(authMode==='register')$('#adminCodeRow').style.display=$('#authPseudo').value.trim().toLowerCase()==='lost'?'grid':'none'};
 $('#authClose').onclick=()=>$('#authDlg').close();
-$('#logoutBtn').onclick=()=>{sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
+const doLogout=()=>{sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
+$('#logoutBtn').onclick=doLogout;
+$('#menuLogoutBtn').onclick=doLogout;
+$('#changeAccountBtn').onclick=()=>openAuth('login');
 $('#authOk').onclick=async()=>{
   const pseudo=$('#authPseudo').value.trim(),password=$('#authPassword').value;
   $('#authNote').style.display='none';
@@ -573,7 +591,7 @@ $('#authOk').onclick=async()=>{
     refreshUser();$('#authDlg').close();renderRec();
   }catch(e){$('#authNote').textContent=e.message;$('#authNote').style.display='block'}
 };
-$('#userBtn').onclick=()=>openAuth(sessionToken?'login':'login');
+$('#userBtn').onclick=()=>sessionToken?openAccountMenu():openAuth('login');
 refreshUser();
 const validateSession=async(tries=0)=>{
   if(!sessionToken)return;
