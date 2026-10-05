@@ -106,3 +106,6 @@ V13.0 — correctifs vocal, profils, graphe et cours
 - Graphe : nouveau graphe, ajout de nœuds par bouton/double-tap, manipulation visuelle réactivée.
 - Cours : nouvelle section avec cours sur les machines virtuelles Windows, Kali Linux, Arch Linux et choix de distributions.
 - Équipe : nouvelle page présentant Lost comme fondateur.
+
+
+V13.2 : graphe réparé, IA économique Flash-Lite, comptes mémorisés, cours synchronisés, enregistrements image, logs réservés aux modérateurs, statistiques de profil.
