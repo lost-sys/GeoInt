@@ -1,4 +1,4 @@
-GeoInt V10 — persistance réelle + sessions longues
+GeoInt V13 — persistance réelle + sessions longues
 
 IMPORTANT
 ---------
@@ -97,3 +97,12 @@ GeoInt v11.1 : vocal amélioré (WebRTC, test micro/écoute locale, indicateur d
 
 
 V12.0 — refonte vocal/chat : redimensionnement par le bord gauche, présence vocale en temps réel, partage d’écran WebRTC bidirectionnel avec renégociation, volume 0–100 %, scène multi-flux, améliorations tactiles/mobile.
+
+V13.0 — correctifs vocal, profils, graphe et cours
+--------------------------------------------------
+- Partage d'écran : piste vidéo persistante, lecture distante plus robuste et partage sans renégociation inutile.
+- Salons vocaux : un utilisateur ne peut être présent que dans un seul salon à la fois ; les listes publiques ne consultent plus un endpoint qui ajoutait accidentellement l'utilisateur au salon.
+- Profils : fermeture par croix, aperçu immédiat de la photo, avatar de secours et avatars visibles dans le chat/vocal.
+- Graphe : nouveau graphe, ajout de nœuds par bouton/double-tap, manipulation visuelle réactivée.
+- Cours : nouvelle section avec cours sur les machines virtuelles Windows, Kali Linux, Arch Linux et choix de distributions.
+- Équipe : nouvelle page présentant Lost comme fondateur.
