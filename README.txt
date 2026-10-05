@@ -74,3 +74,9 @@ récupérées par cette V10. La V10 empêche que cela se reproduise une fois Sup
 
 Pour un usage plus important, il faudra ensuite migrer vers de vraies tables séparées
 (users, messages, records, etc.) et ajouter des sauvegardes.
+
+
+V10.1 - comptes
+- Un utilisateur connecté ne voit plus la fenêtre de connexion lorsqu’il clique sur son compte : un menu propose Changer de compte ou Se déconnecter.
+- Le changement de compte ouvre uniquement la connexion.
+- Le serveur limite strictement le nombre total de comptes à 3.
