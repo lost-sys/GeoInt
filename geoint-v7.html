@@ -289,7 +289,7 @@ dialog{position:relative}
 </dialog>
 
 <dialog id="dlg" style="max-height:90vh;overflow:auto"><form method="dialog"><h3>IA & clés API</h3>
-  <p style="font-size:12px;color:var(--mut);margin:0 0 8px">Les IA sont essayées dans cet ordre : Gemini → Groq → OpenRouter → perso. Si l'une atteint son quota ou tombe en panne, la suivante prend le relais. Laisse vide celles que tu n'utilises pas.</p>
+  <p style="font-size:12px;color:var(--mut);margin:0 0 8px">Les IA sont essayées dans cet ordre : Gemini → Groq → OpenRouter → perso. En <b>mode économique</b>, GeoInt utilise l'IA économique du serveur : aucune clé API n'est demandée à l'utilisateur.</p>
   <h3 style="margin-top:10px">1 · Gemini <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
   <input id="keyIn" type="password" placeholder="Clé API Gemini" style="width:100%" autocomplete="off"><input id="modelIn" placeholder="Modèle (vide : automatique)" style="width:100%;margin-top:6px" class="mono">
   <h3 style="margin-top:12px">2 · Groq (gratuit) <a href="https://console.groq.com/keys" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
@@ -327,7 +327,7 @@ const $=s=>document.querySelector(s);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').style.display='inline-block'});
 $('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch{}deferredInstall=null;$('#installBtn').style.display='none'};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=13.2').then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=13.3').then(reg=>reg.update()).catch(()=>{}));
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
@@ -361,7 +361,7 @@ const providers=()=>{const c=CFG(),L=[],u=a=>[...new Set(a.filter(Boolean))];
   if(c.openrouter?.key)L.push({id:'openrouter',name:'OpenRouter',url:'https://openrouter.ai/api/v1/chat/completions',key:c.openrouter.key,models:u([c.openrouter.model,'openrouter/free','qwen/qwen3.8-27b:free','google/gemma-4-31b-it:free'])});
   [].concat(c.custom||[]).forEach((x,i)=>{if(x&&x.url&&x.model)L.push({id:'custom'+i,name:x.label||'IA perso '+(i+1),url:x.url,key:x.key,models:[x.model]})});
   return L};
-const refreshKey=()=>{$('#keyBtn').style.borderColor=providers().length?'var(--ok)':'var(--bad)';$('#keyBtn').title=providers().map(p=>p.name).join(' → ')||'Aucune IA configurée'};
+const refreshKey=()=>{const eco=localStorage.getItem('gemini_eco')==='1';$('#keyBtn').style.borderColor=eco?'var(--ok)':(providers().length?'var(--ok)':'var(--bad)');$('#keyBtn').title=eco?'Mode économique · IA serveur · aucune clé utilisateur':(providers().map(p=>p.name).join(' → ')||'Aucune IA configurée')};
 $('#keyBtn').onclick=()=>{const c=CFG(),f=(id,v)=>$(id).value=v||'',cu=[].concat(c.custom||[]);f('#keyIn',getKey());f('#modelIn',localStorage.getItem('gemini_model'));f('#grKey',c.groq?.key);f('#grModel',c.groq?.model);f('#orKey',c.openrouter?.key);f('#orModel',c.openrouter?.model);
   [0,1,2].forEach(i=>{f('#cuP'+i,'');f('#cuL'+i,cu[i]?.label);f('#cuU'+i,cu[i]?.url);f('#cuK'+i,cu[i]?.key);f('#cuM'+i,cu[i]?.model)});$('#ecoIn').checked=localStorage.getItem('gemini_eco')==='1';$('#dlg').showModal()};
 $('#keySave').onclick=()=>{const v=id=>$(id).value.trim(),mo=v('#modelIn');
@@ -422,7 +422,8 @@ function showInv(inv){
   $('#inv').innerHTML=Object.entries(g).map(([c,a])=>`<details ${a.some(x=>W[x.strength]>=3)?'open':''} style="margin-bottom:6px"><summary><b>${esc(c)}</b> <span class="mono" style="color:var(--mut)">${a.length}</span></summary>${a.sort((p,q)=>(W[q.strength]||0)-(W[p.strength]||0)).map(x=>`<div style="font-size:12px;margin:3px 0 3px 12px"><span class="chip" style="color:${col[x.strength]||'var(--mut)'}">${esc(x.strength)}</span>${esc(x.detail)}${x.where?` <span style="color:var(--mut)">· ${esc(x.where)}</span>`:''}${x.points_to?` <span style="color:var(--acc)">→ ${esc(x.points_to)}</span>`:''}</div>`).join('')}</details>`).join('')||'—';
 }
 $('#run').onclick=async()=>{
-  if(!providers().length){$('#keyBtn').click();return}failed.clear();$('#who').textContent='';
+  const economicMode=localStorage.getItem('gemini_eco')==='1';
+  if(!economicMode&&!providers().length){$('#keyBtn').click();return}failed.clear();$('#who').textContent='';
   const b=$('#run'),st=m=>{b.textContent=m;$('#sum').textContent=m};
   b.disabled=true;$('#inv').textContent='—';$('#invN').textContent='';$('#reason').style.display='none';$('#fiche').textContent='—';$('#copyFiche').style.display='none';$('#cands').textContent='—';$('#chrono').textContent='—';
   try{
@@ -464,7 +465,18 @@ async function oaCall(P,{parts,schema}){
   }
   throw new Error(errs.join(' | '));
 }
+async function callEconomicAI(req){
+  const parts=(req.parts||[]).filter(p=>p?.text||p?.inline_data);
+  if(!parts.length)throw new Error('Requête IA économique vide');
+  const r=await fetch('/api/ai/economic',{method:'POST',headers:{'Content-Type':'application/json',...(sessionToken?{Authorization:'Bearer '+sessionToken}:{})},body:JSON.stringify({parts,schema:req.schema||null})});
+  let j={};try{j=await r.json()}catch{}
+  if(!r.ok)throw new Error(j.error||`IA économique indisponible (${r.status})`);
+  if(!j.text)throw new Error('IA économique : réponse vide');
+  lastAI=j.model||'IA économique';
+  return j.text;
+}
 async function callAI(req){
+  if(localStorage.getItem('gemini_eco')==='1')return callEconomicAI(req);
   const errs=[],list=providers();
   for(const P of list){
     if(failed.has(P.id))continue;
