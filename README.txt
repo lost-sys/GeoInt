@@ -1,27 +1,76 @@
-GeoInt v9 — rôles, permissions et PWA
+GeoInt V10 — persistance réelle + sessions longues
 
-Fichiers :
-- geoint-v7.html : interface GeoInt
-- server.js : serveur Node sans dépendance
-- manifest.webmanifest : installation PWA
-- sw.js : cache et mises à jour automatiques de la PWA
-- icon-192.png / icon-512.png : icônes
+IMPORTANT
+---------
+La V8/V9 stockait les comptes, messages, rôles et enregistrements dans data.json.
+Sur Render Free, le système de fichiers est éphémère : ce fichier peut disparaître quand
+le service redémarre, se met en veille ou est redéployé.
 
-Déploiement Render :
-- Build Command : echo "No build needed"
-- Start Command : node server.js
-- Environment variable : ADMIN_CODE = ton code secret
+La V10 utilise Supabase pour conserver les données et les sessions côté serveur.
+Le token de connexion est conservé dans le navigateur et la session serveur est conservée
+dans Supabase pendant 180 jours. Un simple redémarrage de Render ne déconnecte donc plus
+l'utilisateur.
 
-Nouveautés v9 :
-- rôles système : Propriétaire, Administrateur, Modérateur, Enquêteur, Membre
-- création de rôles personnalisés
-- couleurs de rôles
-- permissions : gérer rôles, gérer utilisateurs, modérer chat, publier annonces, épingler, publier mises à jour, voir logs
-- attribution de plusieurs rôles à un utilisateur
-- rôles affichés dans le profil et le chat
-- permissions contrôlées côté serveur
-- onglet Gestion réservé aux personnes ayant les permissions adaptées
-- PWA avec cache versionné et navigation réseau-prioritaire pour récupérer les nouvelles versions
-- enregistrement du Service Worker avec version v9 pour forcer la vérification d'une nouvelle version
+1) CRÉER LA TABLE SUPABASE
+--------------------------
+Dans Supabase > SQL Editor, exécute le contenu de supabase.sql :
 
-IMPORTANT : data.json reste stocké sur le disque local du service. Sur Render Free, ce stockage n'est pas persistant. Pour conserver les comptes/messages/rôles de façon durable, utiliser une base de données persistante.
+create table if not exists public.geoint_state (
+  id text primary key,
+  data jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+2) AJOUTER LES VARIABLES SUR RENDER
+-----------------------------------
+Dans Render > GeoInt > Environment, ajoute :
+
+SUPABASE_URL = URL de ton projet Supabase
+SUPABASE_SECRET_KEY = clé secrète de ton projet Supabase
+
+La clé secrète doit rester uniquement côté serveur. Ne la mets jamais dans GitHub,
+le HTML, le JavaScript client ou un message public.
+
+Supabase utilise désormais des clés "secret" pour le code serveur. Les anciennes clés
+service_role fonctionnent encore, mais la clé secret est préférable pour un nouveau projet.
+
+ADMIN_CODE reste inchangé.
+
+3) COMMANDES RENDER
+-------------------
+Build Command : echo "No build needed"
+Start Command : node server.js
+
+4) GIT / DÉPLOIEMENT
+--------------------
+Remplacer sur GitHub :
+- server.js
+- geoint-v7.html
+- sw.js
+- README.txt
+- ajouter supabase.sql (utile pour retrouver le schéma)
+
+Render redéploie automatiquement après le commit.
+
+5) COMPORTEMENT DE LA CONNEXION
+--------------------------------
+- Le token est déjà conservé dans localStorage.
+- La session serveur est maintenant conservée dans Supabase.
+- La session dure 180 jours.
+- Si le serveur met quelques secondes à se réveiller, GeoInt réessaie la validation au lieu
+de supprimer immédiatement le token.
+- Un effacement des données du navigateur ou une déconnexion volontaire demandera une
+nouvelle connexion, ce qui est normal.
+
+6) DONNÉES
+----------
+Comptes, rôles, messages des salons, annonces, mises à jour, logs, enregistrements
+chiffrés et sessions sont regroupés dans la ligne geoint_state de Supabase.
+
+ATTENTION
+---------
+Les anciennes données déjà perdues après un redémarrage de Render ne peuvent pas être
+récupérées par cette V10. La V10 empêche que cela se reproduise une fois Supabase configuré.
+
+Pour un usage plus important, il faudra ensuite migrer vers de vraies tables séparées
+(users, messages, records, etc.) et ajouter des sauvegardes.
