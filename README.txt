@@ -94,3 +94,6 @@ GeoInt v11 — Chat & Vocal
 
 
 GeoInt v11.1 : vocal amélioré (WebRTC, test micro/écoute locale, indicateur de parole), meilleure gestion des mutes serveur et mise en page mobile responsive.
+
+
+V12.0 — refonte vocal/chat : redimensionnement par le bord gauche, présence vocale en temps réel, partage d’écran WebRTC bidirectionnel avec renégociation, volume 0–100 %, scène multi-flux, améliorations tactiles/mobile.
