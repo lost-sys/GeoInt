@@ -36,7 +36,7 @@ function normalizeDB(db){
   const d = db && typeof db === 'object' ? db : defaults();
   d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {};
   d.updates ??= defaults().updates; d.seq ??= 0; d.roles ??= defaults().roles; d.channels ??= defaults().channels;
-  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; });
+  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; });
   if(d.users.lost) d.users.lost.roles=['owner'];
   return d;
 }
@@ -173,22 +173,18 @@ const httpServer = http.createServer(async (req, res) => {
     let mod=p.match(/^\/api\/moderation\/([^/]+)$/); if(mod&&m==='POST'){ const key=decodeURIComponent(mod[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); if(key==='lost')throw E(400,'Le propriétaire ne peut pas être modéré'); const action=String(B.action||''); if(action==='timeout'){if(!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} else if(action==='server_mute'||action==='server_deafen'||action==='clear'){if(!hasPerm(me,'mute_members')&&!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} if(action==='timeout'){const mins=Math.max(1,Math.min(1440,+B.minutes||10));u.timeoutUntil=Date.now()+mins*60000;} else if(action==='server_mute')u.serverMuted=!!B.value; else if(action==='server_deafen')u.serverDeafened=!!B.value; else if(action==='clear'){u.timeoutUntil=0;u.serverMuted=false;u.serverDeafened=false;} else throw E(400,'Action de modération inconnue'); log(me.name,'modération',{title:u.name},action+(action==='timeout'?` ${Math.max(1,Math.min(1440,+B.minutes||10))} min`:'')); await save(); return J(res,200,{ok:true}); }
 
     /* ---- vocal WebRTC : signalisation légère, sans stockage persistant ---- */
-    let vr=p.match(/^\/api\/voice\/([^/]+)(?:\/([^/]+))?$/); if(vr){ const id=decodeURIComponent(vr[1]), c=channelById(id); if(!c||c.type!=='voice')throw E(404,'Salon vocal introuvable'); const room=voiceRoom(id); pruneVoice(id); if(m==='POST'&&vr[2]==='join'){room.set(me.key,{key:me.key,name:me.name,roles:me.roles.map(roleView),lastSeen:Date.now()});return J(res,200,{peers:[...room.values()].map(x=>({key:x.key,name:x.name,roles:x.roles,serverMuted:!!DB.users[x.key]?.serverMuted,serverDeafened:!!DB.users[x.key]?.serverDeafened,timeoutUntil:DB.users[x.key]?.timeoutUntil||0}))});} if(m==='POST'&&vr[2]==='leave'){room.delete(me.key);return J(res,200,{ok:true});} if(m==='GET'&&!vr[2]){room.set(me.key,{key:me.key,name:me.name,roles:me.roles.map(roleView),lastSeen:Date.now()});return J(res,200,{peers:[...room.values()].map(x=>({key:x.key,name:x.name,roles:x.roles,serverMuted:!!DB.users[x.key]?.serverMuted,serverDeafened:!!DB.users[x.key]?.serverDeafened,timeoutUntil:DB.users[x.key]?.timeoutUntil||0}))});} if(m==='POST'&&vr[2]==='signal'){const to=String(B.to||''); if(!room.has(to))return J(res,200,{ok:false}); signalRoom(id).push({id:crypto.randomUUID(),ts:Date.now(),from:me.key,to,type:String(B.type||''),payload:B.payload}); return J(res,200,{ok:true});} if(m==='GET'&&vr[2]==='signals'){room.set(me.key,{...(room.get(me.key)||{}),key:me.key,name:me.name,roles:me.roles.map(roleView),lastSeen:Date.now()}); const sig=signalRoom(id).filter(x=>x.to===me.key&&x.from!==me.key); return J(res,200,{signals:sig});} }
-
-    /* ---- chat ---- */
-    let r = p.match(/^\/api\/chat\/([^/]+)(?:\/(\d+))?$/);
-    if (r) {
-      const roomId=decodeURIComponent(r[1]), room=channelById(roomId); if(!room||room.type!=='text') throw E(404,'Salon inconnu'); const list = DB.chat[roomId] ??= [];
-      if (m === 'GET') { const since = +u.searchParams.get('since') || 0; return J(res, 200, list.filter(x => x.id > since).slice(-200)); }
-      if (m === 'POST') {
-        const now=Date.now(); const us=DB.users[me.key]; if(us?.timeoutUntil>now)throw E(403,`Tu es temporairement réduit au silence jusqu'à ${new Date(us.timeoutUntil).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`); if(room.permission && !hasPerm(me,room.permission)) throw E(403,'Permission insuffisante pour ce salon'); if(room.readonly&&!hasPerm(me,'moderate_chat'))throw E(403,'Ce salon est en lecture seule');
-        const text=filterProfanity(String(B.text||'').trim().slice(0,500)); if(!text)throw E(400,'Message vide'); if(Date.now()-(lastMsg[me.key]||0)<800)throw E(429,'Doucement !'); lastMsg[me.key]=Date.now();
-        list.push({id:++DB.seq,ts:Date.now(),u:me.name,key:me.key,admin:me.admin,roles:me.roles.map(roleView),avatar:DB.users[me.key]?.avatar||'',text,pinned:false,reactions:{}}); DB.chat[roomId]=list.slice(-500); await save(); return J(res,200,{ok:true});
-      }
-      if(m==='DELETE'&&r[2]){const i=list.findIndex(x=>x.id===+r[2]);if(i<0)throw E(404,'Introuvable');if(!hasPerm(me,'moderate_chat')&&list[i].u!==me.name)throw E(403,'Interdit');const gone=list[i];list.splice(i,1);log(me.name,'message supprimé',{title:room.name},gone.u);await save();return J(res,200,{ok:true});}
-      if(m==='PATCH'&&r[2]){const msg=list.find(x=>x.id===+r[2]);if(!msg)throw E(404,'Introuvable');if(!hasPerm(me,'pin_records')&&!hasPermissionForChat(me))throw E(403,'Permission insuffisante'); if(B.pinned!==undefined){msg.pinned=!!B.pinned;log(me.name,msg.pinned?'message épinglé':'message désépinglé',{title:room.name},String(msg.id));} await save();return J(res,200,{ok:true,message:msg});}
-      let rr=p.match(/^\/api\/chat\/([^/]+)\/(\d+)\/reaction$/); if(rr&&m==='POST'){const msg=list.find(x=>x.id===+rr[2]);if(!msg)throw E(404,'Message introuvable');const emoji=String(B.emoji||'').slice(0,8);if(!emoji)throw E(400,'Réaction invalide');msg.reactions??={};msg.reactions[emoji]??=[];const a=msg.reactions[emoji],idx=a.indexOf(me.key);idx>=0?a.splice(idx,1):a.push(me.key);await save();return J(res,200,{ok:true,reactions:msg.reactions});}
-
+    let vr=p.match(/^\/api\/voice\/([^/]+)(?:\/([^/]+))?$/); if(vr){
+      const id=decodeURIComponent(vr[1]), action=vr[2]||'', c=channelById(id); if(!c||c.type!=='voice')throw E(404,'Salon vocal introuvable');
+      const room=voiceRoom(id); pruneVoice(id);
+      const view=x=>({key:x.key,name:x.name,roles:x.roles,avatar:DB.users[x.key]?.avatar||'',serverMuted:!!DB.users[x.key]?.serverMuted,serverDeafened:!!DB.users[x.key]?.serverDeafened,timeoutUntil:DB.users[x.key]?.timeoutUntil||0});
+      const removeFromOtherRooms=()=>{for(const [rid,r] of VOICE){if(rid!==id)r.delete(me.key)}};
+      if(m==='POST'&&action==='join'){removeFromOtherRooms();room.set(me.key,{key:me.key,name:me.name,roles:me.roles.map(roleView),lastSeen:Date.now()});return J(res,200,{peers:[...room.values()].map(view)});}
+      if(m==='POST'&&action==='leave'){for(const r of VOICE.values())r.delete(me.key);return J(res,200,{ok:true});}
+      if(m==='GET'&&action==='members'){return J(res,200,{peers:[...room.values()].map(view)});}
+      if((m==='GET'||m==='POST')&&action==='heartbeat'){if(room.has(me.key))room.get(me.key).lastSeen=Date.now();return J(res,200,{peers:[...room.values()].map(view)});}
+      if(m==='GET'&&!action){return J(res,200,{peers:[...room.values()].map(view)});}
+      if(m==='POST'&&action==='signal'){if(room.has(me.key))room.get(me.key).lastSeen=Date.now();const to=String(B.to||'');if(!room.has(to))return J(res,200,{ok:false});signalRoom(id).push({id:crypto.randomUUID(),ts:Date.now(),from:me.key,to,type:String(B.type||''),payload:B.payload});return J(res,200,{ok:true});}
+      if(m==='GET'&&action==='signals'){if(room.has(me.key))room.get(me.key).lastSeen=Date.now();const sig=signalRoom(id).filter(x=>x.to===me.key&&x.from!==me.key);return J(res,200,{signals:sig});}
     }
     /* ---- mises à jour ---- */
     if (p === '/api/updates' && m === 'GET') return J(res, 200, DB.updates.slice().sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.ts-a.ts));
