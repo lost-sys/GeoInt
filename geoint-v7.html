@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0d10">
-<title>GeoInt v9 — Image, Carte, Graphe, Chat</title>
+<title>GeoInt v10 — Image, Carte, Graphe, Chat</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -74,7 +74,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 </head>
 <body>
 <header>
-  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v9</span></h1>
+  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v10</span></h1>
   <nav role="tablist">
     <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
   </nav>
@@ -529,7 +529,7 @@ const api=async(path,opts={})=>{
   if(sessionToken)headers.Authorization='Bearer '+sessionToken;
   const r=await fetch(API_BASE+path,{...opts,headers});
   let j={};try{j=await r.json()}catch{}
-  if(!r.ok)throw new Error(j.error||`Erreur ${r.status}`);
+  if(!r.ok){const e=new Error(j.error||`Erreur ${r.status}`);e.status=r.status;throw e}
   return j;
 };
 const getUser=()=>localStorage.getItem('geoint_user')||'';
@@ -575,7 +575,21 @@ $('#authOk').onclick=async()=>{
 };
 $('#userBtn').onclick=()=>openAuth(sessionToken?'login':'login');
 refreshUser();
-if(sessionToken){api('/api/me').then(j=>{localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');myRoles=j.roles||[];myPermissions=j.permissions||[];refreshUser();refreshManagement()}).catch(()=>{sessionToken='';localStorage.removeItem('geoint_token');refreshUser()})}
+const validateSession=async(tries=0)=>{
+  if(!sessionToken)return;
+  try{
+    const j=await api('/api/me');
+    localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');
+    myRoles=j.roles||[];myPermissions=j.permissions||[];refreshUser();refreshManagement();
+  }catch(e){
+    if(e.status===401){
+      sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');myRoles=[];myPermissions=[];refreshUser();
+    }else if(tries<4){
+      setTimeout(()=>validateSession(tries+1),3000);
+    }
+  }
+};
+validateSession();
 
 function log(action,rec,detail){
   if(!sessionToken)return;
