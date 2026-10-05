@@ -91,3 +91,6 @@ GeoInt v11 — Chat & Vocal
 - Filtre automatique des gros mots : remplacement par des étoiles côté serveur.
 - La signalisation vocale est éphémère et n'est pas enregistrée dans Supabase.
 - Le reste des données persistantes continue d'utiliser Supabase.
+
+
+GeoInt v11.1 : vocal amélioré (WebRTC, test micro/écoute locale, indicateur de parole), meilleure gestion des mutes serveur et mise en page mobile responsive.
