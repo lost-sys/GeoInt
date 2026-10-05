@@ -703,7 +703,6 @@ $('#authOk').onclick=async()=>{
 };
 $('#userBtn').onclick=()=>sessionToken?openAccountMenu():openAuth('login');
 refreshUser();
-renderCourses();
 const validateSession=async(tries=0)=>{
   if(!sessionToken)return;
   try{
@@ -991,6 +990,7 @@ const COURSES=[
 ];
 let currentCourse='vm';
 function renderCourses(){const list=$('#courseList'),content=$('#courseContent');if(!list||!content)return;list.innerHTML=COURSES.map(c=>`<button class="courseBtn ${c.id===currentCourse?'on':''}" data-course="${c.id}"><b>${esc(c.title)}</b><br><span class="mutedText">${esc(c.desc)}</span></button>`).join('');list.querySelectorAll('[data-course]').forEach(b=>b.onclick=()=>{currentCourse=b.dataset.course;renderCourses()});const c=COURSES.find(x=>x.id===currentCourse)||COURSES[0];const done=JSON.parse(localStorage.getItem('geoint_course_'+c.id)||'[]');content.innerHTML=`<h2>${esc(c.title)}</h2><p style="color:var(--mut)">${esc(c.desc)}</p><div class="courseProgress"><i style="width:${Math.round(done.filter(Boolean).length/c.steps.length*100)}%"></i></div>${c.steps.map((st,i)=>`<div class="courseStep"><label class="courseChecklist"><label><input type="checkbox" data-step="${i}" ${done[i]?'checked':''}> <span><h3>${esc(st[0])}</h3><div>${esc(st[1])}</div></span></label></label></div>`).join('')}`;content.querySelectorAll('[data-step]').forEach(ch=>ch.onchange=()=>{const a=Array.from(content.querySelectorAll('[data-step]')).map(x=>x.checked);localStorage.setItem('geoint_course_'+c.id,JSON.stringify(a));renderCourses()})}
+renderCourses();
 
 const SHAPES={dot:'Rond',square:'Carré',diamond:'Losange',triangle:'Triangle',star:'Étoile',hexagon:'Hexagone',database:'Base de données',box:'Boîte'};
 const LOGOS={facebook:['Facebook','#1877F2','f'],instagram:['Instagram','#E4405F','Ig'],x:['X / Twitter','#000000','X'],tiktok:['TikTok','#010101','Tk'],snapchat:['Snapchat','#FFFC00','Sc','#000'],youtube:['YouTube','#FF0000','▶'],linkedin:['LinkedIn','#0A66C2','in'],discord:['Discord','#5865F2','D'],telegram:['Telegram','#26A5E4','T'],whatsapp:['WhatsApp','#25D366','W'],reddit:['Reddit','#FF4500','R'],github:['GitHub','#181717','G'],twitch:['Twitch','#9146FF','Tw'],steam:['Steam','#171A21','St'],spotify:['Spotify','#1DB954','Sp'],pinterest:['Pinterest','#E60023','P'],threads:['Threads','#000000','@'],signal:['Signal','#3A76F0','Si'],gmail:['E-mail','#EA4335','@']};
