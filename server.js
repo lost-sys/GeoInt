@@ -36,7 +36,7 @@ function normalizeDB(db){
   const d = db && typeof db === 'object' ? db : defaults();
   d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {};
   d.updates ??= defaults().updates; d.seq ??= 0; d.roles ??= defaults().roles; d.channels ??= defaults().channels;
-  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; });
+  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; u.stats??={totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0}; u.stats.totalSeconds=Number(u.stats.totalSeconds)||0; u.stats.searches=Number(u.stats.searches)||0; u.stats.peopleFound=Number(u.stats.peopleFound)||0; u.stats.coursesCompleted=Number(u.stats.coursesCompleted)||0; });
   if(d.users.lost) d.users.lost.roles=['owner'];
   return d;
 }
@@ -137,7 +137,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (key === 'lost') { if (!ADMIN_CODE || sha(String(B.adminCode || '')) !== sha(ADMIN_CODE)) throw E(403, 'Ce pseudo est réservé au créateur du site'); }
       else if (norm(name) === 'lost' || /admin|staff|moderat/i.test(name)) throw E(403, 'Ce pseudo est réservé');
       if (DB.users[key]) throw E(409, 'Ce pseudo est déjà pris');
-      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'], avatar:'', bio:'', serverMuted:false, serverDeafened:false, timeoutUntil:0 };
+      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'], avatar:'', bio:'', serverMuted:false, serverDeafened:false, timeoutUntil:0, stats:{totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0} };
       log(name, 'inscription'); return token(res, key);
     }
     if (p === '/api/login' && m === 'POST') {
@@ -156,8 +156,11 @@ const httpServer = http.createServer(async (req, res) => {
       await save(); log(me.name,'modification profil', {title:me.name}, 'photo/bio');
       return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||''});
     }
-    let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',roles:userRoles({...u,key}).map(roleView),created:u.created}); }
-    if (p === '/api/me/password' && m === 'PATCH') { const pw=String(B.password||''); if(pw.length<8)throw E(400,'Mot de passe : 8 caractères minimum'); const u=DB.users[me.key],salt=crypto.randomBytes(16).toString('hex'); u.salt=salt;u.hash=hash(pw,salt); await save(); log(me.name,'mot de passe modifié'); return J(res,200,{ok:true}); }
+    let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',roles:userRoles({...u,key}).map(roleView),created:u.created,stats:u.stats||{}}); }
+    if (p === '/api/me/activity' && m === 'POST') { const sec=Math.max(0,Math.min(300,Number(B.seconds)||0)); DB.users[me.key].stats.totalSeconds+=sec; await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
+    if (p === '/api/me/stats/search' && m === 'POST') { DB.users[me.key].stats.searches++; DB.users[me.key].stats.peopleFound+=Math.max(0,Math.min(100,Number(B.people)||0)); await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
+    if (p === '/api/me/stats/course' && m === 'POST') { const cid=String(B.course||'').slice(0,60), key='course_'+cid; if(B.completed&&!DB.users[me.key].stats[key]){DB.users[me.key].stats.coursesCompleted++;DB.users[me.key].stats[key]=true;await save()} return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
+
 
     if (p === '/api/roles' && m === 'GET') return J(res,200,DB.roles.slice().sort((a,b)=>b.position-a.position).map(roleView));
     if (p === '/api/roles' && m === 'POST') { if(!hasPerm(me,'manage_roles')) throw E(403,'Permission requise : gérer les rôles'); const name=String(B.name||'').trim().slice(0,30), color=/^#[0-9a-f]{6}$/i.test(B.color)?B.color:'#8b96a3', permissions=Array.isArray(B.permissions)?B.permissions.filter(x=>ROLE_PERMS.includes(x)||x==='*'):[]; if(!name) throw E(400,'Nom du rôle requis'); const id='r_'+crypto.randomBytes(5).toString('hex'); const max=Math.max(0,...DB.roles.map(r=>r.position)); DB.roles.push({id,name,color,position:Math.min(99,Number.isFinite(+B.position)?Math.max(1,Math.min(99,+B.position)):max+1),permissions,hoist:!!B.hoist,mentionable:!!B.mentionable}); await save(); return J(res,200,roleView(DB.roles.at(-1))); }
@@ -204,7 +207,7 @@ const httpServer = http.createServer(async (req, res) => {
     if (p === '/api/records' && m === 'GET') return J(res, 200, DB.records.map(({ salt, iv, data, ...x }) => x));
     if (p === '/api/records' && m === 'POST') {
       const { type, title, meta, salt, iv, data } = B;
-      if (!['graphe', 'carte'].includes(type) || ![salt, iv, data].every(x => typeof x === 'string')) throw E(400, 'Enregistrement invalide');
+      if (!['graphe', 'carte', 'image'].includes(type) || ![salt, iv, data].every(x => typeof x === 'string')) throw E(400, 'Enregistrement invalide');
       const rec = { id: crypto.randomUUID(), type, title: String(title || 'Sans titre').slice(0, 80), author: me.name, ts: Date.now(), meta: String(meta || '').slice(0, 120), pinned: false, salt, iv, data };
       DB.records.unshift(rec); log(me.name, 'création', rec, rec.meta); await save(); const { salt: a, iv: b, data: c, ...pub } = rec; return J(res, 200, pub);
     }
