@@ -54,8 +54,11 @@ const persistNow = async () => {
   if(!r.ok) throw new Error(`Supabase ${r.status}: ${await r.text()}`);
 };
 const save = () => {
-  saving = saving.then(persistNow).catch(e=>{ console.error('ERREUR PERSISTANCE:',e); throw e; });
-  return saving;
+  // Une écriture échouée ne doit jamais bloquer définitivement la file des sauvegardes.
+  const run = () => persistNow();
+  const current = saving.then(run, run);
+  saving = current.catch(e => { console.error('ERREUR PERSISTANCE:', e); });
+  return current;
 };
 
 async function loadPersistentDB(){
@@ -123,7 +126,7 @@ const httpServer = http.createServer(async (req, res) => {
       const f = STATIC[p]; if (!f || !fs.existsSync(path.join(__dirname, f[0]))) { res.writeHead(404); return res.end('Introuvable'); }
       res.writeHead(200, { 'Content-Type': f[1] }); return res.end(fs.readFileSync(path.join(__dirname, f[0])));
     }
-    const B = m === 'POST' ? await body(req) : {};
+    const B = (m === 'POST' || m === 'PATCH') ? await body(req) : {};
     /* ---- comptes ---- */
     if (p === '/api/register' && m === 'POST') {
       const accountCount = Object.keys(DB.users).length;
@@ -205,13 +208,46 @@ const httpServer = http.createServer(async (req, res) => {
       const rec = { id: crypto.randomUUID(), type, title: String(title || 'Sans titre').slice(0, 80), author: me.name, ts: Date.now(), meta: String(meta || '').slice(0, 120), pinned: false, salt, iv, data };
       DB.records.unshift(rec); log(me.name, 'création', rec, rec.meta); await save(); const { salt: a, iv: b, data: c, ...pub } = rec; return J(res, 200, pub);
     }
-    r = p.match(/^\/api\/records\/([\w-]+)(\/pin)?$/);
+    let r = p.match(/^\/api\/records\/([\w-]+)(\/pin)?$/);
     if (r) {
       const rec = DB.records.find(x => x.id === r[1]); if (!rec) throw E(404, 'Introuvable');
       if (r[2] && m === 'POST') { if (!hasPerm(me,'pin_records')) throw E(403, 'Permission insuffisante : épingler'); rec.pinned = !!B.pinned; log(me.name, rec.pinned ? 'épinglé' : 'désépinglé', rec); await save(); return J(res, 200, { ok: true }); }
       if (rec.author !== me.name) { log(me.name, 'accès refusé', rec, 'tentative sur un enregistrement privé'); throw E(403, 'Accès réservé au propriétaire'); }
       if (m === 'GET') return J(res, 200, { type: rec.type, title: rec.title, salt: rec.salt, iv: rec.iv, data: rec.data });
       if (m === 'DELETE') { DB.records = DB.records.filter(x => x !== rec); log(me.name, 'suppression', rec); await save(); return J(res, 200, { ok: true }); }
+    }
+    /* ---- chat ---- */
+    let cr=p.match(/^\/api\/chat\/([^/]+)(?:\/([^/]+))(?:\/(reaction))?$/);
+    let croot=p.match(/^\/api\/chat\/([^/]+)$/);
+    if(croot || cr){
+      const roomId=decodeURIComponent((croot||cr)[1]);
+      const channel=channelById(roomId);
+      if(!channel || channel.type!=='text') throw E(404,'Salon texte introuvable');
+      DB.chat[roomId] ??= [];
+      if(croot && m==='GET') {
+        return J(res,200,DB.chat[roomId].slice(-300).map(x=>({...x,roles:(x.roles||[]).map(roleView)})));
+      }
+      if(croot && m==='POST') {
+        if(channel.readonly && !hasPerm(me,'post_announcements')) throw E(403,'Ce salon est en lecture seule');
+        if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
+        const text=filterProfanity(String(B.text||'').trim()).slice(0,2000);
+        if(!text) throw E(400,'Message vide');
+        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
+        DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
+        await save(); return J(res,200,msg);
+      }
+      if(cr && cr[3]==='reaction' && m==='POST') {
+        const msg=DB.chat[roomId].find(x=>x.id===cr[2]); if(!msg) throw E(404,'Message introuvable');
+        const emoji=String(B.emoji||'').slice(0,8); if(!emoji) throw E(400,'Réaction invalide');
+        msg.reactions ??= {}; msg.reactions[emoji] ??= [];
+        const a=msg.reactions[emoji], i=a.indexOf(me.key); if(i>=0)a.splice(i,1);else a.push(me.key);
+        await save(); return J(res,200,{ok:true,reactions:msg.reactions});
+      }
+      if(cr && !cr[3]) {
+        const msg=DB.chat[roomId].find(x=>x.id===cr[2]); if(!msg) throw E(404,'Message introuvable');
+        if(m==='DELETE') { if(msg.key!==me.key && !hasPerm(me,'moderate_chat')) throw E(403,'Permission insuffisante : modérer les messages'); DB.chat[roomId]=DB.chat[roomId].filter(x=>x!==msg); await save(); return J(res,200,{ok:true}); }
+        if(m==='PATCH') { if(!hasPerm(me,'pin_records')) throw E(403,'Permission insuffisante : épingler'); msg.pinned=!!B.pinned; await save(); return J(res,200,{ok:true}); }
+      }
     }
     /* ---- journal ---- */
     if (p === '/api/logs' && m === 'GET') { if(!hasPerm(me,'view_logs')) throw E(403,'Permission insuffisante : voir les logs'); return J(res,200,DB.logs.slice(-300)); }
