@@ -105,6 +105,8 @@ const httpServer = http.createServer(async (req, res) => {
     const B = m === 'POST' ? await body(req) : {};
     /* ---- comptes ---- */
     if (p === '/api/register' && m === 'POST') {
+      const accountCount = Object.keys(DB.users).length;
+      if (accountCount >= 3) throw E(403, 'Limite atteinte : GeoInt autorise au maximum 3 comptes.');
       const name = String(B.pseudo || '').trim(), key = name.toLowerCase();
       if (!/^[A-Za-z0-9_-]{3,20}$/.test(name)) throw E(400, 'Pseudo : 3 à 20 caractères (lettres, chiffres, _ ou -)');
       if (String(B.password || '').length < 8) throw E(400, 'Mot de passe : 8 caractères minimum');
