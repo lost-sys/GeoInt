@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0d10">
-<title>GeoInt v11 — Image, Carte, Graphe, Chat & Vocal</title>
+<title>GeoInt v11.1 — Image, Carte, Graphe, Chat & Vocal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -71,7 +71,33 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 .roleTag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:1px 7px;font-size:10px;font-weight:700;border:1px solid currentColor;margin-left:5px}.roleAdminGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.permGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;font-size:12px}.userRow{border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:7px}
 .authTabs button.on{background:var(--acc);color:#111}
 #installBtn{display:none}
-@media(max-width:800px){#t-chat{grid-template-columns:1fr;grid-template-rows:auto 1fr}.chatRooms{flex-direction:row;overflow:auto}.chatRooms button{white-space:nowrap}}
+@media(max-width:800px){
+  html,body{min-height:100%;height:auto}body{font-size:14px;overflow:auto}
+  header{position:sticky;top:0;z-index:20;padding:8px 10px;gap:7px;background:var(--bg)}
+  header h1{font-size:14px;margin-right:auto}header nav{order:3;width:100%;margin:0;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}header nav::-webkit-scrollbar{display:none}
+  header nav button{flex:0 0 auto;padding:8px 10px;font-size:12px}header>#keyBtn,header>#installBtn{padding:7px 9px;font-size:12px}header>#userBtn{max-width:125px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  main{padding:8px;overflow:visible;min-height:calc(100vh - 105px)}
+  .tab.on{height:auto;min-height:calc(100vh - 120px)}
+  .card{padding:10px;border-radius:9px}
+  #t-chat{display:grid;grid-template-columns:1fr;grid-template-rows:auto minmax(360px,1fr) auto;gap:8px;overflow:visible}
+  #t-chat>.card{min-width:0;max-height:none}
+  #t-chat .chatRooms{display:flex;flex-direction:row;gap:6px;overflow-x:auto;padding-bottom:2px}
+  #t-chat .chatRooms button{flex:0 0 auto;white-space:nowrap}
+  #t-chat .chatBox{min-height:55vh;height:55vh}
+  #chatMessages{padding:4px;overscroll-behavior:contain}
+  .chatComposer{position:sticky;bottom:0;background:var(--panel);padding:7px 0 0;z-index:3}
+  .chatComposer input{min-width:0}
+  .voicePanel{max-height:none!important;min-height:170px}
+  .voiceList{min-height:70px;max-height:220px}
+  .voiceUser{min-height:44px;padding:8px}.voiceUser .vname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .voiceControls{display:grid;grid-template-columns:1fr 1fr;gap:6px}.voiceControls button{width:100%;min-height:42px}
+  .roleAdminGrid,.permGrid{grid-template-columns:1fr}.fg{grid-template-columns:1fr;gap:4px}
+  dialog{max-height:90vh;overflow:auto}
+}
+.voiceUser.speaking{border-color:var(--ok);box-shadow:0 0 0 2px color-mix(in srgb,var(--ok) 25%,transparent),0 0 12px color-mix(in srgb,var(--ok) 20%,transparent)}
+.voiceUser.speaking .vname{color:var(--ok)}
+.voiceDot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--line);margin-right:5px;vertical-align:middle}
+.voiceUser.speaking .voiceDot{background:var(--ok);box-shadow:0 0 8px var(--ok)}
 
 </style>
 </head>
@@ -144,7 +170,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
   <div class="card voicePanel">
     <div class="bar2"><h3 style="margin:0">🔊 Vocal</h3><span id="voiceState" class="voiceState">Aucun salon</span></div>
     <div id="voiceList" class="voiceList"><div style="color:var(--mut)">Rejoins un salon vocal.</div></div>
-    <div class="voiceControls"><button id="voiceMute">🎙️ Muet</button><button id="voiceDeafen">🎧 Casque</button><button id="voiceLeave">🚪 Quitter</button></div>
+    <div class="voiceControls"><button id="voiceMute">🎙️ Muet</button><button id="voiceDeafen">🎧 Casque</button><button id="voiceMonitor">🗣️ S’écouter</button><button id="voiceLeave">🚪 Quitter</button></div>
   </div>
 </section>
 <section id="t-updates" class="tab">
@@ -233,7 +259,7 @@ const $=s=>document.querySelector(s);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').style.display='inline-block'});
 $('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch{}deferredInstall=null;$('#installBtn').style.display='none'};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=11').then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=11.1').then(reg=>reg.update()).catch(()=>{}));
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
@@ -709,32 +735,37 @@ $('#chatSend').onclick=sendChat;$('#chatInput').onkeydown=e=>{if(e.key==='Enter'
 function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if($('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
 
 /* ---- Vocal WebRTC P2P ---- */
-let voiceChannel=null, voiceStream=null, voicePeers=new Map(), voicePoll=null, voiceSignalSeen=new Set(), voiceMuted=false, voiceDeafened=false, voiceAudio=[];
-function closeVoicePeer(key){const x=voicePeers.get(key);if(x){try{x.pc.close()}catch{}voicePeers.delete(key)}}
-function cleanupVoice(){clearInterval(voicePoll);voicePoll=null;for(const k of voicePeers.keys())closeVoicePeer(k);if(voiceStream){voiceStream.getTracks().forEach(t=>t.stop());voiceStream=null}voiceAudio.forEach(a=>a.remove());voiceAudio=[];voiceChannel=null;$('#voiceState').textContent='Aucun salon';$('#voiceList').innerHTML='<div style="color:var(--mut)">Rejoins un salon vocal.</div>'}
-async function signalVoice(to,type,payload){if(!voiceChannel)return;try{await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signal',{method:'POST',body:JSON.stringify({to,type,payload})})}catch{}}
+let voiceChannel=null, voiceStream=null, voicePeers=new Map(), voicePoll=null, voiceSignalSeen=new Set(), voiceMuted=false, voiceDeafened=false, voiceServerMuted=false, voiceServerDeafened=false, voiceAudio=[], voiceMonitor=false, monitorPrevMuted=false, monitorPrevDeafened=false, voiceMonitorSource=null, voiceMonitorGain=null, voiceCtx=null, voiceAnalyser=null, voiceSpeaking=false, voiceAnalyserRAF=null;
+function closeVoicePeer(key){const x=voicePeers.get(key);if(x){try{x.pc.close()}catch{} if(x.audioAnalyser){try{x.audioAnalyser.disconnect()}catch{}} voicePeers.delete(key)}}
+function stopVoiceMonitor(){if(!voiceMonitor)return;try{if(voiceMonitorSource)voiceMonitorSource.disconnect();if(voiceMonitorGain)voiceMonitorGain.disconnect()}catch{}voiceMonitorSource=null;voiceMonitorGain=null;if(voiceMonitorAudio){try{voiceMonitorAudio.pause();voiceMonitorAudio.srcObject=null}catch{}voiceMonitorAudio.remove();voiceMonitorAudio=null}voiceMonitor=false;voiceMuted=monitorPrevMuted;voiceDeafened=monitorPrevDeafened;applyLocalMute();applyVoiceAudio();$('#voiceMute').textContent=voiceMuted?'🔇 Réactiver micro':'🎙️ Muet';$('#voiceDeafen').textContent=voiceDeafened?'🔕 Réactiver casque':'🎧 Casque';$('#voiceMonitor').textContent='🗣️ S’écouter'}
+function stopVoiceAnalysis(){if(voiceAnalyserRAF)cancelAnimationFrame(voiceAnalyserRAF);voiceAnalyserRAF=null;voiceSpeaking=false;document.querySelectorAll('.voiceUser.speaking').forEach(x=>x.classList.remove('speaking'));for(const x of voicePeers.values()){if(x.audioAnalyser){try{x.audioAnalyser.disconnect()}catch{}x.audioAnalyser=null}}}
+function cleanupVoice(){clearInterval(voicePoll);voicePoll=null;stopVoiceMonitor();stopVoiceAnalysis();for(const k of voicePeers.keys())closeVoicePeer(k);if(voiceStream){voiceStream.getTracks().forEach(t=>t.stop());voiceStream=null}if(voiceCtx){try{voiceCtx.close()}catch{}voiceCtx=null}voiceAudio.forEach(a=>a.remove());voiceAudio=[];voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceServerMuted=false;voiceServerDeafened=false;$('#voiceState').textContent='Aucun salon';$('#voiceList').innerHTML='<div style="color:var(--mut)">Rejoins un salon vocal.</div>';$('#voiceMute').textContent='🎙️ Muet';$('#voiceDeafen').textContent='🎧 Casque'}
+async function signalVoice(to,type,payload){if(!voiceChannel)return;try{await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signal',{method:'POST',body:JSON.stringify({to,type,payload})})}catch(e){console.warn('signal vocal',e)}}
+function ensureAudioContext(){if(!voiceCtx)voiceCtx=new (window.AudioContext||window.webkitAudioContext)();if(voiceCtx.state==='suspended')voiceCtx.resume().catch(()=>{});return voiceCtx}
+function setSpeaking(key,on){const el=document.querySelector('[data-vpeer="'+CSS.escape(key)+'"]');if(el)el.classList.toggle('speaking',!!on)}
+function watchLocalSpeaking(){if(!voiceStream)return;try{const ctx=ensureAudioContext();const src=ctx.createMediaStreamSource(voiceStream);voiceAnalyser=ctx.createAnalyser();voiceAnalyser.fftSize=512;src.connect(voiceAnalyser);const data=new Uint8Array(voiceAnalyser.fftSize);const tick=()=>{if(!voiceChannel||!voiceAnalyser)return;voiceAnalyser.getByteTimeDomainData(data);let sum=0;for(const v of data){const n=(v-128)/128;sum+=n*n}const rms=Math.sqrt(sum/data.length);const on=!voiceMuted&&rms>.045;voiceSpeaking=on;setSpeaking(getUser(),on);voiceAnalyserRAF=requestAnimationFrame(tick)};tick()}catch(e){console.warn('analyse micro',e)}}
+function watchRemoteSpeaking(peerKey,stream,x){try{const ctx=ensureAudioContext();const src=ctx.createMediaStreamSource(stream);const an=ctx.createAnalyser();an.fftSize=512;src.connect(an);x.audioAnalyser=an;const data=new Uint8Array(an.fftSize);const tick=()=>{if(!voicePeers.has(peerKey)||x.audioAnalyser!==an)return;an.getByteTimeDomainData(data);let sum=0;for(const v of data){const n=(v-128)/128;sum+=n*n}setSpeaking(peerKey,Math.sqrt(sum/data.length)>.035);requestAnimationFrame(tick)};tick()}catch(e){console.warn('analyse vocal',e)}}
 async function ensureVoicePeer(peer,initiator){
-  if(peer.key===getUser())return; let x=voicePeers.get(peer.key); if(x)return x.pc;
-  const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]}); x={pc,queue:[],peer};voicePeers.set(peer.key,x);
+  if(peer.key===getUser())return;let x=voicePeers.get(peer.key);if(x)return x.pc;
+  const pc=new RTCPeerConnection({iceServers:[{urls:['stun:stun.l.google.com:19302','stun:stun.cloudflare.com:3478']} ]});x={pc,queue:[],peer,audio:null,audioAnalyser:null};voicePeers.set(peer.key,x);
   pc.onicecandidate=e=>{if(e.candidate)signalVoice(peer.key,'candidate',e.candidate)};
-  pc.ontrack=e=>{let a=x.audio;if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.dataset.voice=peer.key;a.style.display='none';document.body.appendChild(a);x.audio=a;voiceAudio.push(a)}a.srcObject=e.streams[0];a.muted=voiceDeafened||peer.serverDeafened||false;try{a.play()}catch{}};
-  pc.onconnectionstatechange=()=>{if(['failed','closed','disconnected'].includes(pc.connectionState)&&voicePeers.get(peer.key)?.pc===pc)closeVoicePeer(peer.key)};
-  if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream)); else pc.addTransceiver('audio',{direction:'recvonly'});
+  pc.ontrack=e=>{let a=x.audio;if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.dataset.voice=peer.key;a.style.display='none';document.body.appendChild(a);x.audio=a;voiceAudio.push(a)}a.srcObject=e.streams[0];a.muted=voiceDeafened||peer.serverDeafened||false;watchRemoteSpeaking(peer.key,e.streams[0],x);a.play().catch(()=>{toast('Clique sur la page pour autoriser le son du vocal')})};
+  pc.onconnectionstatechange=()=>{if(['failed','closed'].includes(pc.connectionState)&&voicePeers.get(peer.key)?.pc===pc)closeVoicePeer(peer.key)};
+  if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream));else pc.addTransceiver('audio',{direction:'recvonly'});
   if(initiator){const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signalVoice(peer.key,'offer',pc.localDescription)}
   return pc;
 }
 async function handleVoiceSignal(s,peers){const peer=peers.find(p=>p.key===s.from);if(!peer)return;let pc=await ensureVoicePeer(peer,s.type==='offer');const x=voicePeers.get(peer.key);try{if(s.type==='offer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await signalVoice(peer.key,'answer',pc.localDescription)}else if(s.type==='answer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c)}else if(s.type==='candidate'){if(pc.remoteDescription)await pc.addIceCandidate(s.payload);else x.queue.push(s.payload)}}catch(e){console.warn('WebRTC',e)}}
 function applyVoiceAudio(){voiceAudio.forEach(a=>{a.muted=voiceDeafened||false});document.querySelectorAll('[data-voice]').forEach(a=>{a.muted=voiceDeafened})}
-function applyLocalMute(){if(!voiceStream)return;voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted)}
-function renderVoicePeers(peers){$('#voiceList').innerHTML=peers.map(p=>`<div class="voiceUser"><span class="vname">${p.serverMuted?'🔇 ':''}${p.serverDeafened?'🔕 ':''}<b>${esc(p.name)}</b>${roleHtml(p.roles)}</span>${hasPermission('mute_members')&&p.key!==getUser()?`<button class="chatMod" data-vmodmute="${esc(p.key)}">${p.serverMuted?'Unmute':'Mute'}</button><button class="chatMod" data-vmoddeaf="${esc(p.key)}">${p.serverDeafened?'Uncasque':'Casque'}</button>`:''}</div>`).join('')||'<div style="color:var(--mut)">Salon vide.</div>';
-  $('#voiceList').querySelectorAll('[data-vmodmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmodmute,'server_mute',!b.textContent.includes('Unmute')));
-  $('#voiceList').querySelectorAll('[data-vmoddeaf]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmoddeaf,'server_deafen',!b.textContent.includes('Uncasque')));
-}
-async function pollVoice(){if(!voiceChannel)return;try{const state=await api('/api/voice/'+encodeURIComponent(voiceChannel));const peers=state.peers||[];const me=peers.find(p=>p.key===getUser());if(me?.serverMuted&&!voiceMuted){voiceMuted=true;applyLocalMute();toast('Un mute vocal a été appliqué par la modération')}if(me?.serverDeafened&&!voiceDeafened){voiceDeafened=true;applyVoiceAudio();toast('Le casque a été désactivé par la modération')}renderVoicePeers(peers);for(const p of peers){if(p.key!==getUser()&&getUser()<p.key)await ensureVoicePeer(p,true)}const sig=await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signals');for(const x of sig.signals||[]){if(!voiceSignalSeen.has(x.id)){voiceSignalSeen.add(x.id);await handleVoiceSignal(x,peers)}}}catch(e){console.warn('vocal',e)}}
-async function joinVoice(id){if(!sessionToken){openAuth('login');return}if(voiceChannel===id)return;cleanupVoice();voiceChannel=id;$('#voiceState').textContent='Connexion…';voiceSignalSeen=new Set();try{try{voiceStream=await navigator.mediaDevices.getUserMedia({audio:true})}catch{toast('Micro non accessible : tu peux quand même écouter le vocal');voiceStream=null}const st=await api('/api/voice/'+encodeURIComponent(id)+'/join',{method:'POST',body:'{}'});renderVoicePeers(st.peers||[]);voiceMuted=!!st.peers.find(p=>p.key===getUser())?.serverMuted;applyLocalMute();$('#voiceState').textContent='Connecté · '+(roomNames[id]||id);voicePoll=setInterval(pollVoice,1000);await pollVoice()}catch(e){cleanupVoice();toast(e.message)}}
+function applyLocalMute(){if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);if(voiceMuted)setSpeaking(getUser(),false)}
+function renderVoicePeers(peers){$('#voiceList').innerHTML=peers.map(p=>`<div class="voiceUser" data-vpeer="${esc(p.key)}"><span class="vname"><span class="voiceDot"></span>${p.serverMuted?'🔇 ':''}${p.serverDeafened?'🔕 ':''}<b>${esc(p.name)}</b>${roleHtml(p.roles)}</span>${hasPermission('mute_members')&&p.key!==getUser()?`<button class="chatMod" data-vmodmute="${esc(p.key)}">${p.serverMuted?'Unmute':'Mute'}</button><button class="chatMod" data-vmoddeaf="${esc(p.key)}">${p.serverDeafened?'Uncasque':'Casque'}</button>`:''}</div>`).join('')||'<div style="color:var(--mut)">Salon vide.</div>';if(voiceSpeaking)setSpeaking(getUser(),true);
+  $('#voiceList').querySelectorAll('[data-vmodmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmodmute,'server_mute',!b.textContent.includes('Unmute')));$('#voiceList').querySelectorAll('[data-vmoddeaf]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmoddeaf,'server_deafen',!b.textContent.includes('Uncasque')))}
+async function pollVoice(){if(!voiceChannel)return;try{const state=await api('/api/voice/'+encodeURIComponent(voiceChannel));const peers=state.peers||[];const me=peers.find(p=>p.key===getUser());if(me?.serverMuted&&!voiceServerMuted){voiceServerMuted=true;voiceMuted=true;applyLocalMute();toast('Un mute vocal a été appliqué par la modération')}if(!me?.serverMuted&&voiceServerMuted){voiceServerMuted=false;voiceMuted=false;applyLocalMute();toast('Le mute vocal a été retiré par la modération')}if(me?.serverDeafened&&!voiceServerDeafened){voiceServerDeafened=true;voiceDeafened=true;applyVoiceAudio();toast('Le casque a été désactivé par la modération')}if(!me?.serverDeafened&&voiceServerDeafened){voiceServerDeafened=false;voiceDeafened=false;applyVoiceAudio();toast('Le casque a été réactivé par la modération')}renderVoicePeers(peers);for(const p of peers){if(p.key!==getUser()&&getUser()<p.key)await ensureVoicePeer(p,true)}const sig=await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signals');for(const x of sig.signals||[]){if(!voiceSignalSeen.has(x.id)){voiceSignalSeen.add(x.id);await handleVoiceSignal(x,peers)}}}catch(e){console.warn('vocal',e)}}
+async function joinVoice(id){if(!sessionToken){openAuth('login');return}if(voiceChannel===id)return;cleanupVoice();voiceChannel=id;$('#voiceState').textContent='Connexion…';voiceSignalSeen=new Set();try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('Le navigateur ne permet pas l’accès au micro. Utilise HTTPS ou un navigateur récent.');try{voiceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){console.warn('micro',e);toast('Autorise le micro dans les réglages du navigateur puis rejoins à nouveau.');voiceStream=null}const st=await api('/api/voice/'+encodeURIComponent(id)+'/join',{method:'POST',body:'{}'});renderVoicePeers(st.peers||[]);voiceServerMuted=!!st.peers.find(p=>p.key===getUser())?.serverMuted;voiceServerDeafened=!!st.peers.find(p=>p.key===getUser())?.serverDeafened;voiceMuted=voiceServerMuted;voiceDeafened=voiceServerDeafened;applyLocalMute();applyVoiceAudio();if(voiceStream)watchLocalSpeaking();$('#voiceState').textContent='Connecté · '+(roomNames[id]||id);voicePoll=setInterval(pollVoice,1000);await pollVoice()}catch(e){cleanupVoice();toast(e.message)}}
 $('#voiceLeave').onclick=async()=>{if(voiceChannel){try{await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/leave',{method:'POST',body:'{}'})}catch{}cleanupVoice()}};
 $('#voiceMute').onclick=()=>{voiceMuted=!voiceMuted;applyLocalMute();$('#voiceMute').textContent=voiceMuted?'🔇 Réactiver micro':'🎙️ Muet'};
 $('#voiceDeafen').onclick=()=>{voiceDeafened=!voiceDeafened;applyVoiceAudio();$('#voiceDeafen').textContent=voiceDeafened?'🔕 Réactiver casque':'🎧 Casque'};
+$('#voiceMonitor').onclick=()=>{if(!voiceStream)return toast('Aucun micro disponible');if(voiceMonitor){stopVoiceMonitor();return}try{const ctx=ensureAudioContext();monitorPrevMuted=voiceMuted;monitorPrevDeafened=voiceDeafened;voiceMuted=true;voiceDeafened=true;applyLocalMute();applyVoiceAudio();voiceMonitorSource=ctx.createMediaStreamSource(voiceStream);voiceMonitorGain=ctx.createGain();voiceMonitorGain.gain.value=.8;voiceMonitorSource.connect(voiceMonitorGain);voiceMonitorGain.connect(ctx.destination);voiceMonitorAudio=document.createElement('audio');voiceMonitorAudio.autoplay=true;voiceMonitorAudio.playsInline=true;voiceMonitorAudio.muted=true;document.body.appendChild(voiceMonitorAudio);voiceMonitor=true;$('#voiceMute').textContent='🔇 Micro coupé';$('#voiceDeafen').textContent='🔕 Casque coupé';$('#voiceMonitor').textContent='🛑 Arrêter l’écoute';voiceMonitorAudio.play().catch(()=>{})}catch(e){toast('Impossible d’activer l’écoute du micro')}};
 
 /* ---- gestion des salons ---- */
 let editingChannel=null;
