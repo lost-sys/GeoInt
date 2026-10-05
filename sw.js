@@ -1,4 +1,4 @@
-const CACHE = 'geoint-v11-discord-1';
+const CACHE = 'geoint-v11.1-voice-mobile-1';
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
