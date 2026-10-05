@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0d10">
-<title>GeoInt v10 — Image, Carte, Graphe, Chat</title>
+<title>GeoInt v11 — Image, Carte, Graphe, Chat & Vocal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -47,10 +47,11 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 #t-rec{grid-template-columns:1fr 1fr;gap:12px}#t-rec .card{min-height:0}@media(max-width:800px){#t-rec{grid-template-columns:1fr;overflow:auto}}
 
 /* ---------- Compte / chat / mises à jour / PWA ---------- */
-#t-chat{grid-template-columns:210px 1fr;gap:12px}
+#t-chat{grid-template-columns:230px minmax(0,1fr) 230px;gap:12px}
 #t-updates{grid-template-columns:1fr;overflow:auto}
-.chatRooms{display:flex;flex-direction:column;gap:6px}
+.chatRooms{display:flex;flex-direction:column;gap:6px;min-height:0}
 .chatRooms button{text-align:left}
+.chatSectionTitle{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.12em;margin:8px 4px 2px}
 .chatBox{display:flex;flex-direction:column;min-height:0}
 #chatMessages{flex:1;min-height:0;overflow:auto;padding:8px}
 .chatMsg{padding:8px 10px;border-bottom:1px solid var(--line)}
@@ -58,6 +59,8 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 .chatMsg .body{margin-top:3px;white-space:pre-wrap;word-break:break-word}
 .chatComposer{display:flex;gap:8px;padding-top:8px}
 .chatComposer input{flex:1}
+.voicePanel{display:flex;flex-direction:column;gap:8px;min-height:0}.voiceList{overflow:auto;min-height:80px}.voiceUser{display:flex;align-items:center;gap:6px;padding:7px;border:1px solid var(--line);border-radius:8px;margin-bottom:5px}.voiceUser .vname{flex:1}.voiceControls{display:flex;gap:6px;flex-wrap:wrap}.voiceState{font-size:11px;color:var(--mut)}.chatMod{font-size:10px;padding:2px 5px;margin-left:4px}
+@media(max-width:1050px){#t-chat{grid-template-columns:200px minmax(0,1fr)}#t-chat>.voicePanel{grid-column:1/-1;max-height:220px}}
 .update{border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:8px;background:#0e1216}
 .update.pinned{border-color:var(--acc)}
 .update .meta{color:var(--mut);font-size:11px}
@@ -74,7 +77,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 </head>
 <body>
 <header>
-  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v10</span></h1>
+  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v11</span></h1>
   <nav role="tablist">
     <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
   </nav>
@@ -127,17 +130,21 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 
 <section id="t-chat" class="tab">
   <div class="card chatRooms">
-    <h3>Salons</h3>
-    <button class="on" data-room="general">💬 Général</button>
-    <button data-room="annonces">📢 Annonces</button>
-    <button data-room="recrutement">👥 Recrutement</button>
-    <button data-room="aide">🛠 Aide</button>
-    <button data-room="trouvailles">🔎 Trouvailles</button>
+    <h3>Salons texte</h3>
+    <div id="textChannelList"></div>
+    <h3 class="chatSectionTitle">Salons vocaux</h3>
+    <div id="voiceChannelList"></div>
+    <button id="manageChannelsBtn" style="display:none;margin-top:8px">⚙️ Gérer les salons</button>
   </div>
   <div class="card chatBox">
     <div class="bar2"><h3 id="chatTitle" style="margin:0">Général</h3><span id="chatWho" class="mono" style="color:var(--mut);font-size:11px"></span></div>
     <div id="chatMessages"><div style="color:var(--mut)">Chargement…</div></div>
     <div class="chatComposer"><input id="chatInput" maxlength="500" placeholder="Écrire un message…"><button id="chatSend" class="pri">Envoyer</button></div>
+  </div>
+  <div class="card voicePanel">
+    <div class="bar2"><h3 style="margin:0">🔊 Vocal</h3><span id="voiceState" class="voiceState">Aucun salon</span></div>
+    <div id="voiceList" class="voiceList"><div style="color:var(--mut)">Rejoins un salon vocal.</div></div>
+    <div class="voiceControls"><button id="voiceMute">🎙️ Muet</button><button id="voiceDeafen">🎧 Casque</button><button id="voiceLeave">🚪 Quitter</button></div>
   </div>
 </section>
 <section id="t-updates" class="tab">
@@ -160,11 +167,13 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
     <div class="roleAdminGrid" style="margin-top:12px">
       <div class="card"><h3>Rôles</h3><div id="roleList"></div><button id="newRole" class="pri">+ Créer un rôle</button></div>
       <div class="card"><h3>Utilisateurs</h3><div id="userList"></div></div>
+      <div class="card"><h3>Salons</h3><div id="channelList"></div><button id="newTextChannel" class="pri">+ Salon texte</button> <button id="newVoiceChannel">+ Salon vocal</button></div>
     </div>
   </div>
 </section>
 
-<dialog id="roleDlg"><h3>Rôle</h3><div class="fg"><span class="k">Nom</span><input id="roleName" maxlength="30" placeholder="Ex. Modérateur"></div><div class="fg"><span class="k">Couleur</span><input id="roleColor" type="color" value="#5aa9ff"></div><h3>Permissions</h3><div id="permList" class="permGrid"></div><div class="bar2"><button id="roleSave" class="pri">Enregistrer</button><button id="roleCancel">Annuler</button></div></dialog>
+<dialog id="roleDlg"><h3>Éditeur de rôle</h3><div class="fg"><span class="k">Nom</span><input id="roleName" maxlength="30" placeholder="Ex. Modérateur"></div><div class="fg"><span class="k">Couleur</span><input id="roleColor" type="color" value="#5aa9ff"></div><div class="fg"><span class="k">Position</span><input id="rolePosition" type="number" min="1" max="99" value="10"></div><label style="display:flex;gap:8px;align-items:center"><input id="roleHoist" type="checkbox"> Afficher séparément dans la liste</label><label style="display:flex;gap:8px;align-items:center;margin:7px 0 10px"><input id="roleMentionable" type="checkbox"> Autoriser les mentions</label><h3>Permissions</h3><div id="permList" class="permGrid"></div><div class="bar2" style="margin-top:12px"><button id="roleSave" class="pri">Enregistrer</button><button id="roleCancel">Annuler</button></div></dialog>
+<dialog id="channelDlg"><h3>Salon</h3><div class="fg"><span class="k">Nom</span><input id="channelName" maxlength="40"></div><div class="fg"><span class="k">Type</span><select id="channelType"><option value="text">💬 Texte</option><option value="voice">🔊 Vocal</option></select></div><label id="channelReadonlyRow" style="display:flex;gap:8px;align-items:center"><input id="channelReadonly" type="checkbox"> Lecture seule</label><div class="bar2" style="margin-top:12px"><button id="channelSave" class="pri">Créer</button><button id="channelCancel">Annuler</button></div></dialog>
 
 </main>
 
@@ -224,7 +233,7 @@ const $=s=>document.querySelector(s);
 let deferredInstall=null;
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredInstall=e;$('#installBtn').style.display='inline-block'});
 $('#installBtn').onclick=async()=>{if(!deferredInstall)return;deferredInstall.prompt();try{await deferredInstall.userChoice}catch{}deferredInstall=null;$('#installBtn').style.display='none'};
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=10').then(reg=>reg.update()).catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js?v=11').then(reg=>reg.update()).catch(()=>{}));
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
@@ -528,7 +537,7 @@ $('#toGraph').onclick=async()=>{
 /* ---------- Compte, enregistrements serveur, chat et mises à jour ---------- */
 const API_BASE='';
 let sessionToken=localStorage.getItem('geoint_token')||'';
-let currentRoom='general', chatTimer=null, authMode='login', myRoles=[], myPermissions=[];
+let channels=[], currentRoom='general', chatTimer=null, channelTimer=null, authMode='login', myRoles=[], myPermissions=[];
 
 const api=async(path,opts={})=>{
   const headers={'Content-Type':'application/json',...(opts.headers||{})};
@@ -542,7 +551,7 @@ const getUser=()=>localStorage.getItem('geoint_user')||'';
 const isAdmin=()=>localStorage.getItem('geoint_admin')==='1';
 const hasPermission=p=>isAdmin()||myPermissions.includes('*')||myPermissions.includes(p);
 const roleHtml=roles=>(roles||[]).map(r=>`<span class="roleTag" style="color:${esc(r.color)}">${esc(r.name)}</span>`).join('');
-const canManage=()=>hasPermission('manage_roles')||hasPermission('manage_users');
+const canManage=()=>hasPermission('manage_roles')||hasPermission('manage_users')||hasPermission('manage_channels');
 const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display=sessionToken&&canManage()?'inline-block':'none'};
 const ensureUser=async()=>{if(sessionToken)return getUser();openAuth('login');return ''};
 
@@ -608,6 +617,7 @@ const validateSession=async(tries=0)=>{
   }
 };
 validateSession();
+refreshChannels();
 
 function log(action,rec,detail){
   if(!sessionToken)return;
@@ -665,28 +675,72 @@ async function renderRec(){
 }
 $('#gSave').onclick=()=>saveRecord('graphe');$('#mSave').onclick=()=>saveRecord('carte');$('#logExp').onclick=()=>download('journal.json',JSON.stringify(jget('geoint_logs'),null,1));
 
-/* ---------- Chat ---------- */
-const roomNames={general:'Général',annonces:'Annonces',recrutement:'Recrutement',aide:'Aide',trouvailles:'Trouvailles'};
-async function loadChat(){
-  if(!sessionToken){$('#chatMessages').innerHTML='<div style="color:var(--mut)">Connecte-toi pour utiliser le chat.</div>';return}
+/* ---------- Chat, salons et vocal ---------- */
+const roomNames={};
+async function refreshChannels(){
   try{
-    const msgs=await api('/api/chat/'+currentRoom);
-    $('#chatMessages').innerHTML=msgs.map(m=>`<div class="chatMsg"><div class="meta"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''}${roleHtml(m.roles)} · ${new Date(m.ts).toLocaleString('fr-FR')} ${m.u===getUser()||isAdmin()?`<button data-cdel="${m.id}" style="float:right;padding:2px 6px">×</button>`:''}</div><div class="body">${esc(m.text)}</div></div>`).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
-    $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
-    $('#chatMessages').querySelectorAll('[data-cdel]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+currentRoom+'/'+b.dataset.cdel,{method:'DELETE'});loadChat()}catch(e){toast(e.message)}});
+    channels=await api('/api/channels'); channels.forEach(c=>roomNames[c.id]=c.name);
+    const texts=channels.filter(c=>c.type==='text'), voices=channels.filter(c=>c.type==='voice');
+    $('#textChannelList').innerHTML=texts.map(c=>`<button class="${c.id===currentRoom?'on':''}" data-room="${esc(c.id)}">💬 ${esc(c.name)}</button>`).join('')||'<span style="color:var(--mut)">Aucun salon texte.</span>';
+    $('#voiceChannelList').innerHTML=voices.map(c=>`<button data-vroom="${esc(c.id)}">🔊 ${esc(c.name)}</button>`).join('')||'<span style="color:var(--mut)">Aucun salon vocal.</span>';
+    document.querySelectorAll('#textChannelList [data-room]').forEach(b=>b.onclick=()=>{currentRoom=b.dataset.room;document.querySelectorAll('#textChannelList button').forEach(x=>x.classList.toggle('on',x===b));$('#chatTitle').textContent=roomNames[currentRoom]||'Salon';loadChat()});
+    document.querySelectorAll('#voiceChannelList [data-vroom]').forEach(b=>b.onclick=()=>joinVoice(b.dataset.vroom));
+    $('#manageChannelsBtn').style.display=hasPermission('manage_channels')?'block':'none';
+    if(!channels.some(c=>c.id===currentRoom&&c.type==='text')) currentRoom=texts[0]?.id||'';
+    if(currentRoom)loadChat();
+    renderChannelManager();
   }catch(e){toast(e.message)}
 }
-async function sendChat(){
-  if(!sessionToken){openAuth('login');return}
-  if(currentRoom==='annonces'&&!hasPermission('post_announcements'))return toast('Tu n’as pas la permission de publier des annonces');
-  const text=$('#chatInput').value.trim();if(!text)return;
-  try{await api('/api/chat/'+currentRoom,{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}
+async function loadChat(){
+  if(!sessionToken){$('#chatMessages').innerHTML='<div style="color:var(--mut)">Connecte-toi pour utiliser le chat.</div>';return}
+  if(!currentRoom)return;
+  try{
+    const msgs=await api('/api/chat/'+encodeURIComponent(currentRoom));
+    $('#chatMessages').innerHTML=msgs.map(m=>{const mod=hasPermission('moderate_members')&&m.key&&m.key!==getUser();const mine=m.u===getUser()||isAdmin();return `<div class="chatMsg"><div class="meta"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''}${roleHtml(m.roles)} · ${new Date(m.ts).toLocaleString('fr-FR')} ${mine?`<button data-cdel="${m.id}" style="float:right;padding:2px 6px">×</button>`:''}${mod?`<button class="chatMod" data-timeout="${esc(m.key)}">⏱ 10m</button><button class="chatMod" data-vmute="${esc(m.key)}">🎙️ Mute</button>`:''}</div><div class="body">${esc(m.text)}</div></div>`}).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
+    $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
+    $('#chatMessages').querySelectorAll('[data-cdel]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+encodeURIComponent(currentRoom)+'/'+b.dataset.cdel,{method:'DELETE'});loadChat()}catch(e){toast(e.message)}});
+    $('#chatMessages').querySelectorAll('[data-timeout]').forEach(b=>b.onclick=()=>moderate(b.dataset.timeout,'timeout'));
+    $('#chatMessages').querySelectorAll('[data-vmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmute,'server_mute',true));
+  }catch(e){toast(e.message)}
 }
+async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
+async function moderate(key,action,value){try{await api('/api/moderation/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({action,value})});toast(action==='timeout'?'Utilisateur réduit au silence 10 min':value?'Mute vocal activé':'Mute vocal désactivé');loadChat()}catch(e){toast(e.message)}}
 $('#chatSend').onclick=sendChat;$('#chatInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}};
-document.querySelectorAll('.chatRooms button').forEach(b=>b.onclick=()=>{currentRoom=b.dataset.room;document.querySelectorAll('.chatRooms button').forEach(x=>x.classList.toggle('on',x===b));$('#chatTitle').textContent=roomNames[currentRoom];loadChat()});
-function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if($('#t-chat').classList.contains('on'))loadChat()},3000)}
-startChatPoll();
+function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if($('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
 
+/* ---- Vocal WebRTC P2P ---- */
+let voiceChannel=null, voiceStream=null, voicePeers=new Map(), voicePoll=null, voiceSignalSeen=new Set(), voiceMuted=false, voiceDeafened=false, voiceAudio=[];
+function closeVoicePeer(key){const x=voicePeers.get(key);if(x){try{x.pc.close()}catch{}voicePeers.delete(key)}}
+function cleanupVoice(){clearInterval(voicePoll);voicePoll=null;for(const k of voicePeers.keys())closeVoicePeer(k);if(voiceStream){voiceStream.getTracks().forEach(t=>t.stop());voiceStream=null}voiceAudio.forEach(a=>a.remove());voiceAudio=[];voiceChannel=null;$('#voiceState').textContent='Aucun salon';$('#voiceList').innerHTML='<div style="color:var(--mut)">Rejoins un salon vocal.</div>'}
+async function signalVoice(to,type,payload){if(!voiceChannel)return;try{await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signal',{method:'POST',body:JSON.stringify({to,type,payload})})}catch{}}
+async function ensureVoicePeer(peer,initiator){
+  if(peer.key===getUser())return; let x=voicePeers.get(peer.key); if(x)return x.pc;
+  const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]}); x={pc,queue:[],peer};voicePeers.set(peer.key,x);
+  pc.onicecandidate=e=>{if(e.candidate)signalVoice(peer.key,'candidate',e.candidate)};
+  pc.ontrack=e=>{let a=x.audio;if(!a){a=document.createElement('audio');a.autoplay=true;a.playsInline=true;a.dataset.voice=peer.key;a.style.display='none';document.body.appendChild(a);x.audio=a;voiceAudio.push(a)}a.srcObject=e.streams[0];a.muted=voiceDeafened||peer.serverDeafened||false;try{a.play()}catch{}};
+  pc.onconnectionstatechange=()=>{if(['failed','closed','disconnected'].includes(pc.connectionState)&&voicePeers.get(peer.key)?.pc===pc)closeVoicePeer(peer.key)};
+  if(voiceStream)voiceStream.getTracks().forEach(t=>pc.addTrack(t,voiceStream)); else pc.addTransceiver('audio',{direction:'recvonly'});
+  if(initiator){const offer=await pc.createOffer();await pc.setLocalDescription(offer);await signalVoice(peer.key,'offer',pc.localDescription)}
+  return pc;
+}
+async function handleVoiceSignal(s,peers){const peer=peers.find(p=>p.key===s.from);if(!peer)return;let pc=await ensureVoicePeer(peer,s.type==='offer');const x=voicePeers.get(peer.key);try{if(s.type==='offer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await signalVoice(peer.key,'answer',pc.localDescription)}else if(s.type==='answer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c)}else if(s.type==='candidate'){if(pc.remoteDescription)await pc.addIceCandidate(s.payload);else x.queue.push(s.payload)}}catch(e){console.warn('WebRTC',e)}}
+function applyVoiceAudio(){voiceAudio.forEach(a=>{a.muted=voiceDeafened||false});document.querySelectorAll('[data-voice]').forEach(a=>{a.muted=voiceDeafened})}
+function applyLocalMute(){if(!voiceStream)return;voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted)}
+function renderVoicePeers(peers){$('#voiceList').innerHTML=peers.map(p=>`<div class="voiceUser"><span class="vname">${p.serverMuted?'🔇 ':''}${p.serverDeafened?'🔕 ':''}<b>${esc(p.name)}</b>${roleHtml(p.roles)}</span>${hasPermission('mute_members')&&p.key!==getUser()?`<button class="chatMod" data-vmodmute="${esc(p.key)}">${p.serverMuted?'Unmute':'Mute'}</button><button class="chatMod" data-vmoddeaf="${esc(p.key)}">${p.serverDeafened?'Uncasque':'Casque'}</button>`:''}</div>`).join('')||'<div style="color:var(--mut)">Salon vide.</div>';
+  $('#voiceList').querySelectorAll('[data-vmodmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmodmute,'server_mute',!b.textContent.includes('Unmute')));
+  $('#voiceList').querySelectorAll('[data-vmoddeaf]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmoddeaf,'server_deafen',!b.textContent.includes('Uncasque')));
+}
+async function pollVoice(){if(!voiceChannel)return;try{const state=await api('/api/voice/'+encodeURIComponent(voiceChannel));const peers=state.peers||[];const me=peers.find(p=>p.key===getUser());if(me?.serverMuted&&!voiceMuted){voiceMuted=true;applyLocalMute();toast('Un mute vocal a été appliqué par la modération')}if(me?.serverDeafened&&!voiceDeafened){voiceDeafened=true;applyVoiceAudio();toast('Le casque a été désactivé par la modération')}renderVoicePeers(peers);for(const p of peers){if(p.key!==getUser()&&getUser()<p.key)await ensureVoicePeer(p,true)}const sig=await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signals');for(const x of sig.signals||[]){if(!voiceSignalSeen.has(x.id)){voiceSignalSeen.add(x.id);await handleVoiceSignal(x,peers)}}}catch(e){console.warn('vocal',e)}}
+async function joinVoice(id){if(!sessionToken){openAuth('login');return}if(voiceChannel===id)return;cleanupVoice();voiceChannel=id;$('#voiceState').textContent='Connexion…';voiceSignalSeen=new Set();try{try{voiceStream=await navigator.mediaDevices.getUserMedia({audio:true})}catch{toast('Micro non accessible : tu peux quand même écouter le vocal');voiceStream=null}const st=await api('/api/voice/'+encodeURIComponent(id)+'/join',{method:'POST',body:'{}'});renderVoicePeers(st.peers||[]);voiceMuted=!!st.peers.find(p=>p.key===getUser())?.serverMuted;applyLocalMute();$('#voiceState').textContent='Connecté · '+(roomNames[id]||id);voicePoll=setInterval(pollVoice,1000);await pollVoice()}catch(e){cleanupVoice();toast(e.message)}}
+$('#voiceLeave').onclick=async()=>{if(voiceChannel){try{await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/leave',{method:'POST',body:'{}'})}catch{}cleanupVoice()}};
+$('#voiceMute').onclick=()=>{voiceMuted=!voiceMuted;applyLocalMute();$('#voiceMute').textContent=voiceMuted?'🔇 Réactiver micro':'🎙️ Muet'};
+$('#voiceDeafen').onclick=()=>{voiceDeafened=!voiceDeafened;applyVoiceAudio();$('#voiceDeafen').textContent=voiceDeafened?'🔕 Réactiver casque':'🎧 Casque'};
+
+/* ---- gestion des salons ---- */
+let editingChannel=null;
+function renderChannelManager(){if(!sessionToken||!hasPermission('manage_channels')){$('#channelList').innerHTML='<span style="color:var(--mut)">Permission insuffisante.</span>';return}$('#channelList').innerHTML=channels.map(c=>`<div class="userRow"><b>${c.type==='voice'?'🔊':'💬'} ${esc(c.name)}</b><div style="font-size:11px;color:var(--mut)">${c.type==='voice'?'Vocal':'Texte'}${c.readonly?' · lecture seule':''}</div><button data-ce="${esc(c.id)}">Modifier</button> ${c.id!=='general'&&c.id!=='vocal-general'?`<button data-cd="${esc(c.id)}">Supprimer</button>`:''}</div>`).join('');document.querySelectorAll('[data-ce]').forEach(b=>b.onclick=()=>editChannel(channels.find(c=>c.id===b.dataset.ce)));document.querySelectorAll('[data-cd]').forEach(b=>b.onclick=async()=>{if(confirm('Supprimer ce salon ?')){try{await api('/api/channels/'+encodeURIComponent(b.dataset.cd),{method:'DELETE'});refreshChannels()}catch(e){toast(e.message)}}})}
+function editChannel(c){editingChannel=c||null;$('#channelName').value=c?.name||'';$('#channelType').value=c?.type||'text';$('#channelReadonly').checked=!!c?.readonly;$('#channelSave').textContent=c?'Enregistrer':'Créer';$('#channelType').disabled=!!c;$('#channelReadonlyRow').style.display=$('#channelType').value==='text'?'flex':'none';$('#channelDlg').showModal()}
+$('#channelType').onchange=()=>$('#channelReadonlyRow').style.display=$('#channelType').value==='text'?'flex':'none';$('#newTextChannel').onclick=()=>{editingChannel=null;$('#channelName').value='';$('#channelType').value='text';$('#channelReadonly').checked=false;$('#channelType').disabled=false;$('#channelSave').textContent='Créer';$('#channelReadonlyRow').style.display='flex';$('#channelDlg').showModal()};$('#newVoiceChannel').onclick=()=>{editingChannel=null;$('#channelName').value='';$('#channelType').value='voice';$('#channelReadonly').checked=false;$('#channelType').disabled=false;$('#channelSave').textContent='Créer';$('#channelReadonlyRow').style.display='none';$('#channelDlg').showModal()};$('#manageChannelsBtn').onclick=()=>{$('#manageTab').click()};$('#channelCancel').onclick=()=>$('#channelDlg').close();$('#channelSave').onclick=async()=>{try{const payload={name:$('#channelName').value.trim(),type:$('#channelType').value,readonly:$('#channelReadonly').checked};if(!payload.name)throw new Error('Nom requis');await api(editingChannel&&editingChannel.id?'/api/channels/'+encodeURIComponent(editingChannel.id):'/api/channels',{method:editingChannel&&editingChannel.id?'PATCH':'POST',body:JSON.stringify(payload)});$('#channelDlg').close();refreshChannels();toast('Salon enregistré')}catch(e){toast(e.message)}};
 /* ---------- Mises à jour ---------- */
 
 async function publishUpdate(){
@@ -706,18 +760,12 @@ async function renderUpdates(){
 }
 
 /* ---------- Gestion des rôles ---------- */
-const PERMS={manage_roles:'Gérer les rôles',manage_users:'Gérer les utilisateurs',moderate_chat:'Modérer le chat',post_announcements:'Publier des annonces',pin_records:'Épingler des enregistrements',publish_updates:'Publier des mises à jour',view_logs:'Voir les logs'};
+const PERMS={'*':'Administrateur — toutes les permissions',manage_roles:'Gérer les rôles',manage_users:'Gérer les utilisateurs',manage_channels:'Gérer les salons',moderate_chat:'Modérer les messages',moderate_members:'Modérer les membres',mute_members:'Mute vocal',post_announcements:'Publier des annonces',pin_records:'Épingler les enregistrements',publish_updates:'Publier des mises à jour',view_logs:'Voir les logs'};
 let editingRole=null;
-async function refreshManagement(){ if(!sessionToken||!canManage())return; try{ const roles=await api('/api/roles'); const users=hasPermission('manage_users')?await api('/api/users'):[]; $('#roleList').innerHTML=roles.map(r=>`<div class="userRow"><b style="color:${esc(r.color)}">${esc(r.name)}</b><div style="font-size:11px;color:var(--mut)">${r.permissions.includes('*')?'Toutes les permissions':r.permissions.map(p=>PERMS[p]||p).join(' · ')||'Aucune permission'}</div>${!['owner','admin','mod','investigator','member'].includes(r.id)&&hasPermission('manage_roles')?`<button data-re="${r.id}" style="margin-top:6px">Modifier</button><button data-rd="${r.id}" style="margin-top:6px">Supprimer</button>`:''}</div>`).join('');
- $('#roleList').querySelectorAll('[data-re]').forEach(b=>b.onclick=()=>editRole(roles.find(r=>r.id===b.dataset.re))); $('#roleList').querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('Supprimer ce rôle ?')){try{await api('/api/roles/'+b.dataset.rd,{method:'DELETE'});refreshManagement()}catch(e){toast(e.message)}}});
- $('#userList').innerHTML=users.map(u=>`<div class="userRow"><b>${esc(u.name)}</b>${roleHtml(u.roles)}<div style="margin-top:7px"><select data-ur="${esc(u.key)}" multiple size="${Math.min(5,Math.max(2,roles.length))}" style="width:100%">${roles.filter(r=>r.id!=='owner').map(r=>`<option value="${r.id}" ${u.roles.some(x=>x.id===r.id)?'selected':''}>${esc(r.name)}</option>`).join('')}</select><button data-us="${esc(u.key)}" class="pri" style="margin-top:6px">Appliquer les rôles</button></div></div>`).join('')||'<span style="color:var(--mut)">Permission insuffisante ou aucun utilisateur.</span>';
- $('#userList').querySelectorAll('[data-us]').forEach(b=>b.onclick=async()=>{const s=$(`[data-ur=\"${CSS.escape(b.dataset.us)}\"]`);const roles=[...s.selectedOptions].map(o=>o.value);try{await api('/api/users/'+encodeURIComponent(b.dataset.us)+'/roles',{method:'POST',body:JSON.stringify({roles})});toast('Rôles appliqués');refreshManagement()}catch(e){toast(e.message)}});
- }catch(e){toast(e.message)} }
-function editRole(r){editingRole=r;$('#roleName').value=r.name;$('#roleColor').value=r.color;$('#permList').innerHTML=Object.entries(PERMS).map(([k,v])=>`<label><input type="checkbox" data-perm="${k}" ${r.permissions.includes(k)?'checked':''}> ${v}</label>`).join('');$('#roleDlg').showModal()}
-$('#newRole').onclick=()=>editRole({id:null,name:'Nouveau rôle',color:'#5aa9ff',permissions:[]});
-$('#roleSave').onclick=async()=>{const payload={name:$('#roleName').value.trim(),color:$('#roleColor').value,permissions:[...$('#permList').querySelectorAll('[data-perm]:checked')].map(x=>x.dataset.perm)};try{await api(editingRole.id?'/api/roles/'+editingRole.id:'/api/roles',{method:editingRole.id?'PATCH':'POST',body:JSON.stringify(payload)});$('#roleDlg').close();refreshManagement();toast('Rôle enregistré')}catch(e){toast(e.message)}};
-$('#roleCancel').onclick=()=>$('#roleDlg').close();
-// Le clic Gestion est déjà géré par le gestionnaire global des onglets ci-dessus.
+async function refreshManagement(){if(!sessionToken||!canManage())return;try{const roles=await api('/api/roles');const users=hasPermission('manage_users')?await api('/api/users'):[];$('#roleList').innerHTML=roles.map(r=>`<div class="userRow"><b style="color:${esc(r.color)}">${esc(r.name)}</b><span class="mono" style="font-size:10px;color:var(--mut)"> · pos ${r.position}</span><div style="font-size:11px;color:var(--mut)">${r.permissions.includes('*')?'Toutes les permissions':r.permissions.map(p=>PERMS[p]||p).join(' · ')||'Aucune permission'}</div>${r.id!=='owner'&&hasPermission('manage_roles')?`<button data-re="${r.id}" style="margin-top:6px">Modifier</button>${!['member'].includes(r.id)?`<button data-rd="${r.id}" style="margin-top:6px">Supprimer</button>`:''}`:''}</div>`).join('');$('#roleList').querySelectorAll('[data-re]').forEach(b=>b.onclick=()=>editRole(roles.find(r=>r.id===b.dataset.re)));$('#roleList').querySelectorAll('[data-rd]').forEach(b=>b.onclick=async()=>{if(confirm('Supprimer ce rôle ?')){try{await api('/api/roles/'+b.dataset.rd,{method:'DELETE'});refreshManagement();refreshUser()}catch(e){toast(e.message)}}});$('#userList').innerHTML=users.map(u=>`<div class="userRow"><b>${esc(u.name)}</b>${roleHtml(u.roles)}<div style="margin-top:7px"><select data-ur="${esc(u.key)}" multiple size="${Math.min(6,Math.max(2,roles.length))}" style="width:100%">${roles.filter(r=>r.id!=='owner').map(r=>`<option value="${r.id}" ${u.roles.some(x=>x.id===r.id)?'selected':''}>${esc(r.name)}</option>`).join('')}</select><button data-us="${esc(u.key)}" class="pri" style="margin-top:6px">Appliquer les rôles</button></div></div>`).join('')||'<span style="color:var(--mut)">Permission insuffisante ou aucun utilisateur.</span>';$('#userList').querySelectorAll('[data-us]').forEach(b=>b.onclick=async()=>{const s=$(`[data-ur="${CSS.escape(b.dataset.us)}"]`);const roles=[...s.selectedOptions].map(o=>o.value);try{await api('/api/users/'+encodeURIComponent(b.dataset.us)+'/roles',{method:'POST',body:JSON.stringify({roles})});toast('Rôles appliqués');refreshManagement()}catch(e){toast(e.message)}});renderChannelManager()}catch(e){toast(e.message)}}
+function editRole(r){editingRole=r;$('#roleName').value=r.name;$('#roleColor').value=r.color;$('#rolePosition').value=r.position||10;$('#roleHoist').checked=!!r.hoist;$('#roleMentionable').checked=!!r.mentionable;$('#permList').innerHTML=Object.entries(PERMS).map(([k,v])=>`<label><input type="checkbox" data-perm="${k}" ${r.permissions.includes(k)||r.permissions.includes('*')?'checked':''}> ${v}</label>`).join('');$('#roleDlg').showModal()}
+$('#newRole').onclick=()=>editRole({id:null,name:'Nouveau rôle',color:'#5aa9ff',position:20,permissions:[],hoist:false,mentionable:false});
+$('#roleSave').onclick=async()=>{const payload={name:$('#roleName').value.trim(),color:$('#roleColor').value,position:+$('#rolePosition').value,hoist:$('#roleHoist').checked,mentionable:$('#roleMentionable').checked,permissions:[...$('#permList').querySelectorAll('[data-perm]:checked')].map(x=>x.dataset.perm)};try{await api(editingRole.id?'/api/roles/'+editingRole.id:'/api/roles',{method:editingRole.id?'PATCH':'POST',body:JSON.stringify(payload)});$('#roleDlg').close();refreshManagement();validateSession();toast('Rôle enregistré')}catch(e){toast(e.message)}};$('#roleCancel').onclick=()=>$('#roleDlg').close();
 /* ---------- Graphe ---------- */
 const TYPES={Personne:['#ff5d5d','dot'],Compte:['#7a86ff','dot'],IP:['#3ddc97','database'],Lieu:['#ffb020','diamond'],Organisation:['#5aa9ff','square'],Document:['#c792ea','box']};
 const SHAPES={dot:'Rond',square:'Carré',diamond:'Losange',triangle:'Triangle',star:'Étoile',hexagon:'Hexagone',database:'Base de données',box:'Boîte'};
