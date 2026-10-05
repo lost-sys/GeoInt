@@ -1,4 +1,4 @@
-const CACHE = 'geoint-v9-roles-1';
+const CACHE = 'geoint-v10-persistent-1';
 const CORE = ['/', '/index.html', '/manifest.webmanifest', '/icon-192.png', '/icon-512.png'];
 
 self.addEventListener('install', event => {
