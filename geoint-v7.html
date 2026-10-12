@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#0b0d10">
-<title>GeoInt v13.2 — Image, Carte, Graphe, Chat & Vocal</title>
+<title>GeoInt v13.3 — Image, Carte, Graphe, Chat & Vocal</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
@@ -149,7 +149,7 @@ dialog{position:relative}
 </head>
 <body>
 <header>
-  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v13.0</span></h1>
+  <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v13.3</span></h1>
   <nav role="tablist">
     <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button data-t="courses">⑦ Cours</button><button data-t="about">⑧ Équipe</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
   </nav>
@@ -318,6 +318,7 @@ dialog{position:relative}
   <span class="k">Forme</span><select id="edCurve"><option value="0">Droite</option><option value="1">Courbe</option></select>
 </div><div class="bar2"><button type="button" id="edSave" class="pri">Enregistrer</button><button type="button" id="edCancel">Annuler</button><button type="button" id="edDel" style="margin-left:auto;color:var(--bad)">Supprimer</button></div></dialog>
 <dialog id="pw"><h3 id="pwH">Mot de passe</h3><div class="fg"><span class="k" id="pwTk">Titre</span><input id="pwTitle" placeholder="Nom de l'enregistrement"><span class="k">Mot de passe</span><input id="pwIn" type="password" autocomplete="off"><span class="k" id="pwK2">Confirmer</span><input id="pwIn2" type="password" autocomplete="off"></div><p id="pwNote" style="font-size:12px;color:var(--mut)"></p><div class="bar2"><button type="button" id="pwOk" class="pri">Valider</button><button type="button" id="pwNo">Annuler</button></div></dialog>
+<dialog id="logsDlg" style="max-width:640px"><button class="dialogX" id="logsClose" type="button" aria-label="Fermer">×</button><h3>Logs du serveur</h3><div id="serverLogs" class="mono" style="font-size:12px;max-height:60vh;overflow:auto"></div><div class="bar2" style="margin-top:12px"><button id="logsRefresh" type="button">Actualiser</button></div></dialog>
 <div id="cm"></div>
 <div id="toast"></div>
 <script>
@@ -667,7 +668,7 @@ async function openProfile(key){try{const p=await api('/api/profile/'+encodeURIC
 async function openSettings(){try{const p=await api('/api/me');$('#myAvatarPreview').src=avatarData(p.avatar,p.name);$('#myBio').value=p.bio||'';$('#newPassword').value='';$('#newPassword2').value='';$('#avatarFile').value='';$('#settingsDlg').showModal()}catch(e){toast(e.message)}}
 $('#myProfileBtn').onclick=openSettings;$('#profileClose').onclick=()=>$('#profileDlg').close();$('#profileX').onclick=()=>$('#profileDlg').close();$('#settingsClose').onclick=()=>$('#settingsDlg').close();$('#settingsX').onclick=()=>$('#settingsDlg').close();$('#authX').onclick=()=>$('#authDlg').close();
 $('#avatarFile').onchange=e=>{const f=e.target.files[0];if(!f)return;if(f.size>650000){toast('Photo trop volumineuse (650 Ko max)');e.target.value='';return}const r=new FileReader();r.onload=()=>$('#myAvatarPreview').src=r.result;r.readAsDataURL(f)};
-$('#profileSave').onclick=async()=>{try{let avatar;const f=$('#avatarFile').files[0];if(f){if(f.size>650000)throw new Error('Photo trop volumineuse (650 Ko max)');avatar=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}const body={bio:$('#myBio').value.trim()};if(avatar)body.avatar=avatar;const np=$('#newPassword').value;if(np){if(np.length<8)throw new Error('8 caractères minimum');if(np!==$('#newPassword2').value)throw new Error('Les mots de passe diffèrent');await api('/api/me/password',{method:'PATCH',body:JSON.stringify({password:np})})}const out=await api('/api/me/profile',{method:'PATCH',body:JSON.stringify(body)});$('#myAvatarPreview').src=out.avatar||avatar||'';$('#avatarFile').value='';$('#settingsDlg').close();refreshUser();loadChat();toast('Profil enregistré')}catch(e){toast(e.message)}};
+$('#profileSave').onclick=async()=>{try{let avatar;const f=$('#avatarFile').files[0];if(f){if(f.size>650000)throw new Error('Photo trop volumineuse (650 Ko max)');avatar=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(f)})}const body={bio:$('#myBio').value.trim()};if(avatar)body.avatar=avatar;const np=$('#newPassword').value;if(np){if(np.length<8)throw new Error('8 caractères minimum');if(np!==$('#newPassword2').value)throw new Error('Les mots de passe diffèrent');await api('/api/me/password',{method:'PATCH',body:JSON.stringify({password:np})})}const out=await api('/api/me/profile',{method:'PATCH',body:JSON.stringify(body)});$('#myAvatarPreview').src=out.avatar||avatar||'';$('#avatarFile').value='';$('#settingsDlg').close();refreshUser();$('#chatMessages').dataset.sig='';loadChat();toast('Profil enregistré')}catch(e){toast(e.message)}};
 function openAuth(mode='login'){
   authMode=mode;const d=$('#authDlg');
   $('#accountMenu').style.display='none';$('#authForm').style.display='block';
@@ -683,7 +684,7 @@ function openAuth(mode='login'){
 function savedAccounts(){try{return JSON.parse(localStorage.getItem('geoint_accounts')||'[]')}catch{return[]}}
 function rememberAccount(j){let a=savedAccounts().filter(x=>x.name!==j.name);a.unshift({name:j.name,token:j.token,admin:!!j.admin,roles:j.roles||[]});localStorage.setItem('geoint_accounts',JSON.stringify(a.slice(0,3)))}
 function forgetAccount(name){localStorage.setItem('geoint_accounts',JSON.stringify(savedAccounts().filter(x=>x.name!==name)))}
-function switchToAccount(a){sessionToken=a.token;localStorage.setItem('geoint_token',a.token);localStorage.setItem('geoint_user',a.name);localStorage.setItem('geoint_admin',a.admin?'1':'0');myRoles=a.roles||[];myPermissions=myRoles.flatMap(r=>r.permissions||[]);validateSession();refreshUser();$('#authDlg').close();renderRec();loadChat();toast('Compte '+a.name+' sélectionné')}
+function switchToAccount(a){sessionToken=a.token;localStorage.setItem('geoint_token',a.token);localStorage.setItem('geoint_user',a.name);localStorage.setItem('geoint_admin',a.admin?'1':'0');myRoles=a.roles||[];myPermissions=myRoles.flatMap(r=>r.permissions||[]);validateSession();refreshUser();$('#authDlg').close();renderRec();loadChat();toast('Compte '+a.name+' sélectionné');refreshChannels()}
 function renderSavedAccounts(){const box=$('#accountList');if(!box)return;const a=savedAccounts();box.innerHTML=a.length?a.map(x=>`<div class="userRow" style="display:flex;gap:8px;align-items:center"><button class="pri" data-switch="${esc(x.name)}" style="flex:1;text-align:left">👤 ${esc(x.name)}${x.name===getUser()?' · actuel':''}</button><button data-forget="${esc(x.name)}" title="Oublier ce compte">×</button></div>`).join(''):'<span style="color:var(--mut)">Aucun compte mémorisé.</span>';box.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{const a=savedAccounts().find(x=>x.name===b.dataset.switch);if(a)switchToAccount(a)});box.querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{forgetAccount(b.dataset.forget);renderSavedAccounts()})}
 function openAccountMenu(){
   const d=$('#authDlg');
@@ -696,7 +697,7 @@ function openAccountMenu(){
 $('#loginTab').onclick=()=>openAuth('login');$('#newLoginBtn').onclick=()=>openAuth('login');$('#registerTab').onclick=()=>openAuth('register');
 $('#authPseudo').oninput=()=>{if(authMode==='register')$('#adminCodeRow').style.display=$('#authPseudo').value.trim().toLowerCase()==='lost'?'grid':'none'};
 $('#authClose').onclick=()=>$('#authDlg').close();
-const doLogout=()=>{const old=getUser();sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');if(old)forgetAccount(old);myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
+const doLogout=()=>{api('/api/logout',{method:'POST',body:'{}'}).catch(()=>{});const old=getUser();sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');if(old)forgetAccount(old);myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
 $('#logoutBtn').onclick=doLogout;
 $('#menuLogoutBtn').onclick=doLogout;
 $('#changeAccountBtn').onclick=()=>{renderSavedAccounts();$('#authTitle').textContent='Changer de compte';$('#authForm').style.display='none';$('#accountMenu').style.display='block';$('#accountMenuText').textContent='Choisis un compte mémorisé ou utilise le bouton Connexion pour un autre compte.';$('#authDlg').showModal()};
@@ -709,11 +710,11 @@ $('#authOk').onclick=async()=>{
       if(password!==password2)throw new Error('Les deux mots de passe diffèrent');
       const j=await api('/api/register',{method:'POST',body:JSON.stringify({pseudo,password,adminCode:$('#authAdmin').value})});
       sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0'); myRoles=j.roles||[]; myPermissions=myRoles.flatMap(r=>r.permissions||[]); rememberAccount(j);
-      toast('Compte créé · bienvenue '+j.name);
+      toast('Compte créé · bienvenue '+j.name);setTimeout(refreshChannels,0);
     }else{
       const j=await api('/api/login',{method:'POST',body:JSON.stringify({pseudo,password})});
       sessionToken=j.token;localStorage.setItem('geoint_token',j.token);localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0'); myRoles=j.roles||[]; myPermissions=myRoles.flatMap(r=>r.permissions||[]); rememberAccount(j);
-      toast('Connexion réussie');
+      toast('Connexion réussie');setTimeout(refreshChannels,0);
     }
     refreshUser();$('#authDlg').close();renderRec();
   }catch(e){$('#authNote').textContent=e.message;$('#authNote').style.display='block'}
@@ -725,7 +726,7 @@ const validateSession=async(tries=0)=>{
   try{
     const j=await api('/api/me');
     localStorage.setItem('geoint_user',j.name);localStorage.setItem('geoint_admin',j.admin?'1':'0');
-    myRoles=j.roles||[];myPermissions=j.permissions||[];refreshUser();refreshManagement();
+    myRoles=j.roles||[];myPermissions=j.permissions||[];refreshUser();refreshManagement();refreshChannels();
   }catch(e){
     if(e.status===401){
       sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');myRoles=[];myPermissions=[];refreshUser();
@@ -783,7 +784,7 @@ async function saveRecord(type){
   if(type==='graphe')initGraph();const data=type==='graphe'?graphDump():mapSnap();
   const meta=type==='graphe'?`${data.nodes.length} nœuds · ${data.edges.length} liens`:`${data.pins.length} pins · ${data.wps.length} points d'itinéraire${data.vp?' · point de vue':''}`;
   const r=await askPw({save:true});if(!r)return;
-  try{const enc=await seal(data,r.pw),j=await api('/api/records',{method:'POST',body:JSON.stringify({type,title:r.title||'Sans titre '+new Date().toLocaleDateString('fr-FR'),meta,...enc})});log('création',j,meta);toast('Enregistré sur le serveur et chiffré');renderRec()}
+  try{const enc=await seal(data,r.pw),j=await api('/api/records',{method:'POST',body:JSON.stringify({type,title:r.title||'Sans titre '+new Date().toLocaleDateString('fr-FR'),meta,...enc})});toast('Enregistré sur le serveur et chiffré');renderRec()}
   catch(e){toast('Enregistrement impossible : '+e.message)}
 }
 async function openRec(id,del=false){
@@ -801,7 +802,7 @@ async function openRec(id,del=false){
 }
 const LOGTXT={'création':r=>`a enregistré ${r.type==='graphe'?'un graphe':'une carte'} « ${esc(r.title)} »`,'ouverture':r=>`a ouvert « ${esc(r.title)} »`,'suppression':r=>`a supprimé « ${esc(r.title)} »`,'accès refusé':r=>`<b class="warn">⚠ accès refusé</b> sur « ${esc(r.title)} »`,'analyse':()=>"a réussi une analyse d'image"};
 async function togglePin(id,pinned){
-  if(!isAdmin())return toast('Seul Lost peut épingler les enregistrements');
+  if(!hasPermission('pin_records'))return toast('Permission requise : épingler');
   try{await api('/api/records/'+id+'/pin',{method:'POST',body:JSON.stringify({pinned})});renderRec();toast(pinned?'Enregistrement épinglé':'Enregistrement désépinglé')}catch(e){toast(e.message)}
 }
 async function renderRec(){
@@ -809,16 +810,16 @@ async function renderRec(){
   try{
     const recs=await api('/api/records'); let logs=[]; if(isAdmin()||hasPermission('view_logs')){try{logs=await api('/api/logs')}catch{logs=[]}}
     recs.sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||b.ts-a.ts);
-    $('#recList').innerHTML=recs.map(r=>`<div class="cand" style="cursor:default;border-color:${r.pinned?'var(--acc)':'var(--line)'}"><b>${r.pinned?'📌 ':''}${r.type==='graphe'?'🕸':r.type==='image'?'🖼':'🗺'} ${esc(r.title)}</b><span style="float:right">🔒</span><div style="font-size:12px;color:var(--mut)">par ${esc(r.author)} · ${new Date(r.ts).toLocaleString('fr-FR')}<br>${esc(r.meta)}</div><div class="bar2" style="margin-top:6px"><button data-o="${r.id}">Ouvrir</button>${r.author===getUser()||isAdmin()?`<button data-d="${r.id}">Supprimer</button>`:''}${isAdmin()?`<button data-p="${r.id}">${r.pinned?'Désépingler':'📌 Épingler'}</button>`:''}</div></div>`).join('')||'Aucun enregistrement.';
+    $('#recList').innerHTML=recs.map(r=>`<div class="cand" style="cursor:default;border-color:${r.pinned?'var(--acc)':'var(--line)'}"><b>${r.pinned?'📌 ':''}${r.type==='graphe'?'🕸':r.type==='image'?'🖼':'🗺'} ${esc(r.title)}</b><span style="float:right">🔒</span><div style="font-size:12px;color:var(--mut)">par ${esc(r.author)} · ${new Date(r.ts).toLocaleString('fr-FR')}<br>${esc(r.meta)}</div><div class="bar2" style="margin-top:6px"><button data-o="${r.id}">Ouvrir</button>${r.author===getUser()||isAdmin()?`<button data-d="${r.id}">Supprimer</button>`:''}${hasPermission('pin_records')?`<button data-p="${r.id}">${r.pinned?'Désépingler':'📌 Épingler'}</button>`:''}</div></div>`).join('')||'Aucun enregistrement.';
     $('#recList').querySelectorAll('[data-o]').forEach(b=>b.onclick=()=>openRec(b.dataset.o));$('#recList').querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>openRec(b.dataset.d,true));$('#recList').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>togglePin(b.dataset.p,!recs.find(r=>r.id===b.dataset.p)?.pinned));
     $('#logList').innerHTML=(isAdmin()||hasPermission('view_logs'))?logs.slice().reverse().map(l=>`<div style="margin-bottom:6px"><span style="color:var(--mut)">${new Date(l.ts).toLocaleString('fr-FR')}</span> · <b>${esc(l.author)}</b> ${(LOGTXT[l.action]||(()=>esc(l.action)))(l)}${l.detail?` <span style="color:var(--mut)">(${esc(l.detail)})</span>`:''}</div>`).join('')||'Aucune activité.':'Les journaux d’activité sont réservés aux modérateurs et administrateurs.';
   }catch(e){$('#recList').innerHTML=`<span class="warn">${esc(e.message)}</span>`}
 }
-$('#gSave').onclick=()=>saveRecord('graphe');$('#mSave').onclick=()=>saveRecord('carte');$('#logExp').onclick=()=>download('journal.json',JSON.stringify(jget('geoint_logs'),null,1));
+$('#gSave').onclick=()=>saveRecord('graphe');$('#mSave').onclick=()=>saveRecord('carte');$('#logExp').onclick=()=>api('/api/logs').then(l=>download('journal.json',JSON.stringify(l,null,1))).catch(e=>toast(e.message));
 
 /* ---------- Chat, salons et vocal ---------- */
 const roomNames={};
-async function refreshChannels(){
+async function refreshChannels(){if(!sessionToken)return;
   try{
     channels=await api('/api/channels'); channels.forEach(c=>roomNames[c.id]=c.name);
     const texts=channels.filter(c=>c.type==='text'), voices=channels.filter(c=>c.type==='voice');
@@ -834,13 +835,13 @@ async function refreshChannels(){
   }catch(e){toast(e.message)}
 }
 async function loadChat(){
-  if(!sessionToken){$('#chatMessages').innerHTML='<div style="color:var(--mut)">Connecte-toi pour utiliser le chat.</div>';return}
+  if(!sessionToken){$('#chatMessages').innerHTML='<div style="color:var(--mut)">Connecte-toi pour utiliser le chat.</div>';$('#chatMessages').dataset.sig='';return}
   if(!currentRoom)return;
   try{
-    const msgs=await api('/api/chat/'+encodeURIComponent(currentRoom));
+    const msgs=await api('/api/chat/'+encodeURIComponent(currentRoom));const box=$('#chatMessages'),sig=currentRoom+'|'+JSON.stringify(msgs.map(m=>[m.id,m.pinned,m.reactions,m.avatar])),stick=box.dataset.room!==currentRoom||box.scrollHeight-box.scrollTop-box.clientHeight<80;if(box.dataset.sig===sig)return;box.dataset.sig=sig;box.dataset.room=currentRoom;
     const avatar=m=>avatarData(m.avatar,m.u);
-    $('#chatMessages').innerHTML=msgs.map(m=>{const mod=hasPermission('moderate_members')&&m.key&&m.key!==getUser();const mine=m.u===getUser()||isAdmin();const rx=Object.entries(m.reactions||{}).filter(([,a])=>a.length).map(([e,a])=>`<button class="msgReaction" data-react="${m.id}" data-emoji="${esc(e)}">${esc(e)} ${a.length}</button>`).join('');return `<div class="chatMsg ${m.pinned?'pinned':''}" data-msg="${m.id}"><div class="chatRow"><img class="chatAvatar" src="${esc(avatar(m))}" alt="" onerror="this.src=avatarData('','${esc(m.u)}')"><div class="chatContent"><div class="meta"><span class="chatHeaderUser" data-profile="${esc(m.key)}"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''}${roleHtml(m.roles)}</span> · ${new Date(m.ts).toLocaleString('fr-FR')} ${m.pinned?' · 📌':''}</div><div class="body">${esc(m.text)}</div><div class="msgActions">${rx}<button class="chatMod" data-emoji-pick="${m.id}">😀</button>${hasPermission('pin_records')?`<button class="chatMod" data-pinmsg="${m.id}">${m.pinned?'Désépingler':'📌 Épingler'}</button>`:''}${mine?`<button class="chatMod" data-cdel="${m.id}">Supprimer</button>`:''}${mod?`<button class="chatMod" data-timeout="${esc(m.key)}">⏱ 10m</button><button class="chatMod" data-vmute="${esc(m.key)}">🎙️ Mute</button>`:''}</div></div></div></div>`}).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
-    $('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
+    $('#chatMessages').innerHTML=msgs.map(m=>{const mod=hasPermission('moderate_members')&&m.key&&m.key!==getUser();const mine=m.u===getUser()||hasPermission('moderate_chat');const rx=Object.entries(m.reactions||{}).filter(([,a])=>a.length).map(([e,a])=>`<button class="msgReaction" data-react="${m.id}" data-emoji="${esc(e)}">${esc(e)} ${a.length}</button>`).join('');return `<div class="chatMsg ${m.pinned?'pinned':''}" data-msg="${m.id}"><div class="chatRow"><img class="chatAvatar" src="${esc(avatar(m))}" alt="" onerror="this.src=avatarData('','${esc(m.u)}')"><div class="chatContent"><div class="meta"><span class="chatHeaderUser" data-profile="${esc(m.key)}"><b>${esc(m.u)}</b>${m.admin?' <span class="badge">LOST</span>':''}${roleHtml(m.roles)}</span> · ${new Date(m.ts).toLocaleString('fr-FR')} ${m.pinned?' · 📌':''}</div><div class="body">${esc(m.text)}</div><div class="msgActions">${rx}<button class="chatMod" data-emoji-pick="${m.id}">😀</button>${hasPermission('pin_records')?`<button class="chatMod" data-pinmsg="${m.id}">${m.pinned?'Désépingler':'📌 Épingler'}</button>`:''}${mine?`<button class="chatMod" data-cdel="${m.id}">Supprimer</button>`:''}${mod?`<button class="chatMod" data-timeout="${esc(m.key)}">⏱ 10m</button><button class="chatMod" data-vmute="${esc(m.key)}">🎙️ Mute</button>`:''}</div></div></div></div>`}).join('')||'<div style="color:var(--mut)">Aucun message.</div>';
+    if(stick)$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
     $('#chatMessages').querySelectorAll('[data-cdel]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+encodeURIComponent(currentRoom)+'/'+b.dataset.cdel,{method:'DELETE'});loadChat()}catch(e){toast(e.message)}});
     $('#chatMessages').querySelectorAll('[data-timeout]').forEach(b=>b.onclick=()=>moderate(b.dataset.timeout,'timeout'));
     $('#chatMessages').querySelectorAll('[data-vmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmute,'server_mute',true));
@@ -868,7 +869,7 @@ function openStreamMenu(ev,v){
 }
 /* ---- Vocal WebRTC P2P ---- */
 let voiceChannel=null, voiceStream=null, voicePeers=new Map(), voicePoll=null, voiceSignalSeen=new Set(), voiceMuted=false, voiceDeafened=false, voiceServerMuted=false, voiceServerDeafened=false, voiceAudio=[], voiceMonitor=false, monitorPrevMuted=false, monitorPrevDeafened=false, voiceMonitorSource=null, voiceMonitorGain=null, voiceCtx=null, voiceAnalyser=null, voiceSpeaking=false, voiceAnalyserRAF=null;
-function closeVoicePeer(key){const x=voicePeers.get(key);if(x){try{x.pc.close()}catch{} if(x.audioAnalyser){try{x.audioAnalyser.disconnect()}catch{}} if(x.video){try{x.video.remove()}catch{}} voicePeers.delete(key)}}
+let voiceMonitorAudio=null;function closeVoicePeer(key){const x=voicePeers.get(key);if(x){try{x.pc.close()}catch{} if(x.audioAnalyser){try{x.audioAnalyser.disconnect()}catch{}} if(x.video){try{x.video.remove()}catch{}} voicePeers.delete(key)}}
 function stopVoiceMonitor(){if(!voiceMonitor)return;try{if(voiceMonitorSource)voiceMonitorSource.disconnect();if(voiceMonitorGain)voiceMonitorGain.disconnect()}catch{}voiceMonitorSource=null;voiceMonitorGain=null;if(voiceMonitorAudio){try{voiceMonitorAudio.pause();voiceMonitorAudio.srcObject=null}catch{}voiceMonitorAudio.remove();voiceMonitorAudio=null}voiceMonitor=false;voiceMuted=monitorPrevMuted;voiceDeafened=monitorPrevDeafened;applyLocalMute();applyVoiceAudio();$('#voiceMute').textContent=voiceMuted?'🔇 Réactiver micro':'🎙️ Muet';$('#voiceDeafen').textContent=voiceDeafened?'🔕 Réactiver casque':'🎧 Casque';$('#voiceMonitor').textContent='🗣️ S’écouter'}
 function stopVoiceAnalysis(){if(voiceAnalyserRAF)cancelAnimationFrame(voiceAnalyserRAF);voiceAnalyserRAF=null;voiceSpeaking=false;document.querySelectorAll('.voiceUser.speaking').forEach(x=>x.classList.remove('speaking'));for(const x of voicePeers.values()){if(x.audioAnalyser){try{x.audioAnalyser.disconnect()}catch{}x.audioAnalyser=null}}}
 function cleanupVoice(){if(screenStream)stopScreenShare();clearInterval(voicePoll);voicePoll=null;stopVoiceMonitor();stopVoiceAnalysis();for(const k of voicePeers.keys())closeVoicePeer(k);if(voiceStream){voiceStream.getTracks().forEach(t=>t.stop());voiceStream=null}if(voiceCtx){try{voiceCtx.close()}catch{}voiceCtx=null}voiceAudio.forEach(a=>a.remove());voiceAudio=[];voiceChannel=null;voiceMuted=false;voiceDeafened=false;voiceServerMuted=false;voiceServerDeafened=false;$('#voiceState').textContent='Aucun salon';$('#voiceList').innerHTML='<div style="color:var(--mut)">Rejoins un salon vocal.</div>';$('#voiceMute').textContent='🎙️ Muet';$('#voiceDeafen').textContent='🎧 Casque'}
@@ -897,8 +898,8 @@ async function ensureVoicePeer(peer,initiator){
         x.video=v;
       }
       v.srcObject=stream;v.volume=getVoiceVolume();v.muted=true;
-      const stage=$('#voiceStage');stage.style.display='block';stage.classList.add('multi');if(!stage.contains(v))stage.appendChild(v);
-      v.onloadedmetadata=()=>v.play().catch(()=>{});v.oncanplay=()=>v.play().catch(()=>{});e.track.onunmute=()=>v.play().catch(()=>{});v.onclick=()=>{v.muted=!v.muted;v.play().catch(()=>{});toast(v.muted?'Son du partage coupé':'Son du partage activé')};
+      const stage=$('#voiceStage');if(!stage.contains(v))stage.appendChild(v);
+      v.onloadedmetadata=()=>v.play().catch(()=>{});v.oncanplay=()=>v.play().catch(()=>{});e.track.onunmute=()=>{refreshVoiceStage();v.play().catch(()=>{})};e.track.onmute=refreshVoiceStage;v.onclick=()=>{v.muted=!v.muted;v.play().catch(()=>{});toast(v.muted?'Son du partage coupé':'Son du partage activé')};
       e.track.onended=()=>{try{v.pause()}catch{}v.srcObject=null;v.remove();x.video=null;refreshVoiceStage()};
       refreshVoiceStage();v.play().catch(()=>{});return;
     }
@@ -918,15 +919,15 @@ async function renegotiateVoicePeer(peerKey){
   try{const offer=await x.pc.createOffer();await x.pc.setLocalDescription(offer);await signalVoice(peerKey,'offer',x.pc.localDescription)}catch(e){console.warn('renegotiate vocal',e)}
 }
 function getVoiceVolume(){const v=Number($('#voiceVolume')?.value);return Number.isFinite(v)?Math.max(0,Math.min(1,v/100)):1}
-function refreshVoiceStage(){const stage=$('#voiceStage');if(!stage)return;const vids=[...stage.querySelectorAll('video')].filter(v=>v.srcObject);stage.style.display=vids.length?'block':'none';stage.classList.toggle('multi',vids.length>1)}
-async function handleVoiceSignal(s,peers){const peer=peers.find(p=>p.key===s.from);if(!peer)return;let pc=await ensureVoicePeer(peer,s.type==='offer');const x=voicePeers.get(peer.key);try{if(s.type==='offer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await signalVoice(peer.key,'answer',pc.localDescription)}else if(s.type==='answer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c)}else if(s.type==='candidate'){if(pc.remoteDescription)await pc.addIceCandidate(s.payload);else x.queue.push(s.payload)}}catch(e){console.warn('WebRTC',e)}}
+function refreshVoiceStage(){const stage=$('#voiceStage');if(!stage)return;const vids=[...stage.querySelectorAll('video')].filter(v=>v.srcObject&&v.srcObject.getVideoTracks().some(t=>t.readyState==='live'&&!t.muted));stage.style.display=vids.length?'block':'none';stage.classList.toggle('multi',vids.length>1)}
+async function handleVoiceSignal(s,peers){const peer=peers.find(p=>p.key===s.from);if(!peer)return;let pc=await ensureVoicePeer(peer,false);const x=voicePeers.get(peer.key);try{if(s.type==='offer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await signalVoice(peer.key,'answer',pc.localDescription)}else if(s.type==='answer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c)}else if(s.type==='candidate'){if(pc.remoteDescription)await pc.addIceCandidate(s.payload);else x.queue.push(s.payload)}}catch(e){console.warn('WebRTC',e)}}
 function applyVoiceAudio(){voiceAudio.forEach(a=>{a.muted=voiceDeafened||false;a.volume=getVoiceVolume()});document.querySelectorAll('[data-voice]').forEach(a=>{a.muted=voiceDeafened});document.querySelectorAll('.remoteScreenVideo').forEach(v=>{v.muted=voiceDeafened;v.volume=getVoiceVolume()})}
 function applyLocalMute(){if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);if(voiceMuted)setSpeaking(getUser(),false)}
 function renderVoicePeers(peers){$('#voiceList').innerHTML=peers.map(p=>`<div class="voiceUser" data-vpeer="${esc(p.key)}"><img class="chatAvatar voiceMiniAvatar" src="${esc(avatarData(p.avatar,p.name))}" alt=""><span class="vname"><span class="voiceDot"></span>${p.serverMuted?'🔇 ':''}${p.serverDeafened?'🔕 ':''}<span data-profile="${esc(p.key)}" style="cursor:pointer"><b>${esc(p.name)}</b>${roleHtml(p.roles)}</span>${hasPermission('mute_members')&&p.key!==getUser()?`<button class="chatMod" data-vmodmute="${esc(p.key)}">${p.serverMuted?'Unmute':'Mute'}</button><button class="chatMod" data-vmoddeaf="${esc(p.key)}">${p.serverDeafened?'Uncasque':'Casque'}</button>`:''}</span></div>`).join('')||'<div style="color:var(--mut)">Salon vide.</div>';if(voiceSpeaking)setSpeaking(getUser(),true);$('#voiceList').querySelectorAll('[data-profile]').forEach(b=>b.onclick=()=>openProfile(b.dataset.profile));
   $('#voiceList').querySelectorAll('[data-vmodmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmodmute,'server_mute',!b.textContent.includes('Unmute')));$('#voiceList').querySelectorAll('[data-vmoddeaf]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmoddeaf,'server_deafen',!b.textContent.includes('Uncasque')))}
 async function refreshVoiceChannelMembers(){
   const voices=channels.filter(c=>c.type==='voice');
-  await Promise.all(voices.map(async c=>{try{const st=await api('/api/voice/'+encodeURIComponent(c.id)+'/members');const el=$('#voiceMembers-'+CSS.escape(c.id));if(!el)return;const peers=st.peers||[];el.innerHTML=peers.map(p=>`<div class=\"voiceRoomMember\"><img class=\"chatAvatar voiceMiniAvatar\" src=\"${esc(avatarData(p.avatar,p.name))}\" alt=\"><span class=\"voiceDot\"></span>${esc(p.name)}</div>`).join('')||'<span style=\"color:var(--mut)\">Personne</span>'}catch{}}));
+  await Promise.all(voices.map(async c=>{try{const st=await api('/api/voice/'+encodeURIComponent(c.id)+'/members');const el=$('#voiceMembers-'+CSS.escape(c.id));if(!el)return;const peers=st.peers||[];el.innerHTML=peers.map(p=>`<div class=\"voiceRoomMember\"><img class=\"chatAvatar voiceMiniAvatar\" src=\"${esc(avatarData(p.avatar,p.name))}\" alt=\"\"><span class=\"voiceDot\"></span>${esc(p.name)}</div>`).join('')||'<span style=\"color:var(--mut)\">Personne</span>'}catch{}}));
 }
 async function pollVoice(){if(!voiceChannel){await refreshVoiceChannelMembers();return}try{const state=await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/heartbeat');const peers=state.peers||[];const me=peers.find(p=>p.key===getUser());if(me?.serverMuted&&!voiceServerMuted){voiceServerMuted=true;voiceMuted=true;applyLocalMute();toast('Un mute vocal a été appliqué par la modération')}if(!me?.serverMuted&&voiceServerMuted){voiceServerMuted=false;voiceMuted=false;applyLocalMute();toast('Le mute vocal a été retiré par la modération')}if(me?.serverDeafened&&!voiceServerDeafened){voiceServerDeafened=true;voiceDeafened=true;applyVoiceAudio();toast('Le casque a été désactivé par la modération')}if(!me?.serverDeafened&&voiceServerDeafened){voiceServerDeafened=false;voiceDeafened=false;applyVoiceAudio();toast('Le casque a été réactivé par la modération')}renderVoicePeers(peers);await refreshVoiceChannelMembers();for(const p of peers){if(p.key!==getUser()&&getUser()<p.key)await ensureVoicePeer(p,true)}const sig=await api('/api/voice/'+encodeURIComponent(voiceChannel)+'/signals');for(const x of sig.signals||[]){if(!voiceSignalSeen.has(x.id)){voiceSignalSeen.add(x.id);await handleVoiceSignal(x,peers)}}}catch(e){console.warn('vocal',e)}}
 async function joinVoice(id){if(!sessionToken){openAuth('login');return}if(voiceChannel===id)return;cleanupVoice();voiceChannel=id;$('#voiceState').textContent='Connexion…';voiceSignalSeen=new Set();try{if(!navigator.mediaDevices?.getUserMedia)throw new Error('Le navigateur ne permet pas l’accès au micro. Utilise HTTPS ou un navigateur récent.');try{voiceStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}})}catch(e){console.warn('micro',e);toast('Autorise le micro dans les réglages du navigateur puis rejoins à nouveau.');voiceStream=null}const st=await api('/api/voice/'+encodeURIComponent(id)+'/join',{method:'POST',body:'{}'});renderVoicePeers(st.peers||[]);voiceServerMuted=!!st.peers.find(p=>p.key===getUser())?.serverMuted;voiceServerDeafened=!!st.peers.find(p=>p.key===getUser())?.serverDeafened;voiceMuted=voiceServerMuted;voiceDeafened=voiceServerDeafened;applyLocalMute();applyVoiceAudio();if(voiceStream)watchLocalSpeaking();$('#voiceState').textContent='Connecté · '+(roomNames[id]||id);voicePoll=setInterval(pollVoice,1000);await pollVoice()}catch(e){cleanupVoice();toast(e.message)}}
@@ -970,7 +971,7 @@ $('#channelType').onchange=()=>$('#channelReadonlyRow').style.display=$('#channe
 /* ---------- Mises à jour ---------- */
 
 async function publishUpdate(){
-  if(!isAdmin())return toast('Seul Lost peut publier une mise à jour');
+  if(!hasPermission('publish_updates'))return toast('Permission requise : publier des mises à jour');
   const title=$('#upTitle').value.trim(),text=$('#upText').value.trim();
   if(!title||!text)return toast('Titre et texte requis');
   try{await api('/api/updates',{method:'POST',body:JSON.stringify({title,text,pinned:$('#upPinned').checked})});$('#upTitle').value='';$('#upText').value='';$('#upPinned').checked=false;toast('Mise à jour publiée');renderUpdates()}
@@ -978,7 +979,7 @@ async function publishUpdate(){
 }
 $('#upPublish').onclick=publishUpdate;
 async function renderUpdates(){
-  $('#updateAdmin').style.display=isAdmin()?'block':'none';
+  $('#updateAdmin').style.display=hasPermission('publish_updates')?'block':'none';
   try{
     const list=await api('/api/updates');
     $('#updatesList').innerHTML=list.map(u=>`<article class="update ${u.pinned?'pinned':''}"><div class="bar2"><b>${u.pinned?'📌 ':''}${esc(u.title)}</b><span class="meta">${new Date(u.ts).toLocaleString('fr-FR')} · ${esc(u.author||'Lost')}</span></div><div style="margin-top:6px;white-space:pre-wrap">${esc(u.text)}</div></article>`).join('')||'<div style="color:var(--mut)">Aucune mise à jour.</div>';
@@ -1017,6 +1018,34 @@ let currentCourse='vm';
 function renderCourses(){const list=$('#courseList'),content=$('#courseContent');if(!list||!content)return;list.innerHTML=COURSES.map(c=>`<button class="courseBtn ${c.id===currentCourse?'on':''}" data-course="${c.id}"><b>${esc(c.title)}</b><br><span class="mutedText">${esc(c.desc)}</span></button>`).join('');list.querySelectorAll('[data-course]').forEach(b=>b.onclick=()=>{currentCourse=b.dataset.course;renderCourses()});const c=COURSES.find(x=>x.id===currentCourse)||COURSES[0];const done=JSON.parse(localStorage.getItem('geoint_course_'+c.id)||'[]');content.innerHTML=`<h2>${esc(c.title)}</h2><p style="color:var(--mut)">${esc(c.desc)}</p><div class="courseProgress"><i style="width:${Math.round(done.filter(Boolean).length/c.steps.length*100)}%"></i></div>${c.steps.map((st,i)=>`<div class="courseStep"><label class="courseChecklist"><label><input type="checkbox" data-step="${i}" ${done[i]?'checked':''}> <span><h3>${esc(st[0])}</h3><div>${esc(st[1])}</div></span></label></label></div>`).join('')}`;content.querySelectorAll('[data-step]').forEach(ch=>ch.onchange=()=>{const a=Array.from(content.querySelectorAll('[data-step]')).map(x=>x.checked);localStorage.setItem('geoint_course_'+c.id,JSON.stringify(a));api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:a.filter(Boolean).length===c.steps.length})}).catch(()=>{});renderCourses()})}
 renderCourses();
 
+/* ---------- Édition des nœuds et des liens (v13.3) ---------- */
+let ndId=null,ndImg='',edId=null;
+const ndPrev=()=>{const p=$('#ndPrev');if(ndImg)p.src=ndImg;else p.removeAttribute('src');p.style.visibility=ndImg?'visible':'hidden'};
+function editNode(id){
+  const n=nodes.get(id);if(!n)return;ndId=id;ndImg=n.image||'';
+  $('#ndLabel').value=n.label||'';$('#ndFill').value=/^#[0-9a-f]{6}$/i.test(n.fill||'')?n.fill:TYPES[n.type][0];
+  $('#ndBorder').value=/^#[0-9a-f]{6}$/i.test(n.border||'')?n.border:'#0b0d10';
+  $('#ndBw').value=n.bw??2;$('#ndBwv').textContent=$('#ndBw').value;$('#ndShape').value=n.sh||TYPES[n.type][1];$('#ndLogo').value=n.logo||'';
+  $('#ndUrl').value=ndImg&&!ndImg.startsWith('data:')?ndImg:'';$('#ndDid').value=n.did||'';$('#ndNote').textContent='';ndPrev();$('#nd').showModal();
+}
+$('#ndBw').oninput=e=>$('#ndBwv').textContent=e.target.value;
+$('#ndLogo').onchange=async e=>{const k=e.target.value;if(!k)return;try{ndImg=await logoData(k);ndPrev()}catch{toast('Logo indisponible')}};
+$('#ndUrl').onchange=e=>{ndImg=e.target.value.trim();$('#ndLogo').value='';ndPrev()};
+$('#ndFile').onchange=async e=>{const f=e.target.files?.[0];e.target.value='';if(!f)return;try{ndImg=await toData(f);$('#ndLogo').value='';ndPrev()}catch{toast('Image illisible')}};
+$('#ndDget').onclick=async()=>{try{$('#ndNote').textContent='Recherche…';const r=await discordAvatar($('#ndDid').value.trim());ndImg=r.img;if(r.name&&!$('#ndLabel').value.trim())$('#ndLabel').value=r.name;$('#ndNote').textContent='Compte créé le '+r.made.toLocaleDateString('fr-FR');ndPrev()}catch(e){$('#ndNote').textContent='';toast(e.message)}};
+$('#ndNoImg').onclick=()=>{ndImg='';$('#ndUrl').value='';$('#ndLogo').value='';ndPrev()};
+$('#ndSave').onclick=()=>{const n=nodes.get(ndId);if(!n)return $('#nd').close();nodes.update(styled({...n,label:$('#ndLabel').value.trim()||n.label,fill:$('#ndFill').value,border:$('#ndBorder').value,bw:+$('#ndBw').value,sh:$('#ndShape').value,image:ndImg||null,logo:$('#ndLogo').value||'',did:$('#ndDid').value.trim()}));$('#nd').close()};
+$('#ndCancel').onclick=()=>$('#nd').close();
+$('#ndDel').onclick=()=>{if(ndId==null)return;edges.remove(edges.get().filter(e=>e.from===ndId||e.to===ndId).map(e=>e.id));nodes.remove(ndId);$('#nd').close()};
+function editEdge(id){
+  const e=edges.get(id);if(!e)return;edId=id;const c=typeof e.color==='string'?e.color:(e.color&&e.color.color)||'';
+  $('#edLabel').value=e.label||'';$('#edColor').value=/^#[0-9a-f]{6}$/i.test(c)?c:'#555566';$('#edW').value=e.width||2;$('#edDash').value=e.dashes?'1':'0';
+  const a=typeof e.arrows==='string'?e.arrows:'to';$('#edArr').value=['to','from','to, from',''].includes(a)?a:'to';$('#edCurve').value=e.smooth?'1':'0';$('#ed').showModal();
+}
+$('#edSave').onclick=()=>{if(!edges.get(edId))return $('#ed').close();edges.update({id:edId,label:$('#edLabel').value.trim(),color:{color:$('#edColor').value},width:+$('#edW').value,dashes:$('#edDash').value==='1',arrows:$('#edArr').value,smooth:$('#edCurve').value==='1'?{type:'dynamic'}:false});$('#ed').close()};
+$('#edCancel').onclick=()=>$('#ed').close();
+$('#edDel').onclick=()=>{if(edId!=null)edges.remove(edId);$('#ed').close()};
+
 const SHAPES={dot:'Rond',square:'Carré',diamond:'Losange',triangle:'Triangle',star:'Étoile',hexagon:'Hexagone',database:'Base de données',box:'Boîte'};
 const LOGOS={facebook:['Facebook','#1877F2','f'],instagram:['Instagram','#E4405F','Ig'],x:['X / Twitter','#000000','X'],tiktok:['TikTok','#010101','Tk'],snapchat:['Snapchat','#FFFC00','Sc','#000'],youtube:['YouTube','#FF0000','▶'],linkedin:['LinkedIn','#0A66C2','in'],discord:['Discord','#5865F2','D'],telegram:['Telegram','#26A5E4','T'],whatsapp:['WhatsApp','#25D366','W'],reddit:['Reddit','#FF4500','R'],github:['GitHub','#181717','G'],twitch:['Twitch','#9146FF','Tw'],steam:['Steam','#171A21','St'],spotify:['Spotify','#1DB954','Sp'],pinterest:['Pinterest','#E60023','P'],threads:['Threads','#000000','@'],signal:['Signal','#3A76F0','Si'],gmail:['E-mail','#EA4335','@']};
 $('#gType').innerHTML=Object.keys(TYPES).map(t=>`<option>${t}</option>`).join('');
@@ -1050,14 +1079,14 @@ function initGraph(){
   nodes=new vis.DataSet(saved.nodes.filter(n=>TYPES[n.type]).map(styled));edges=new vis.DataSet(saved.edges.map(edgeStyled));
   net=new vis.Network($('#vis'),{nodes,edges},{autoResize:true,interaction:{hover:true,multiselect:true,dragNodes:true,dragView:true,zoomView:true,selectConnectedEdges:true},layout:{improvedLayout:false},edges:{smooth:false,width:2,selectionWidth:3},physics:{enabled:true,barnesHut:{gravitationalConstant:-3500,springLength:130,avoidOverlap:.2},stabilization:{iterations:100}},manipulation:{enabled:false}});graphReady=true;
   const stats=()=>$('#gStats').textContent=`${nodes.length} nœuds · ${edges.length} liens`;
-  const dump=()=>{const pos=net.getPositions();return{nodes:nodes.get().map(n=>({...pick(n,['id','label','type','fill','border','bw','sh','image','fixed']),...pos[n.id]})),edges:edges.get().map(e=>pick(e,['id','from','to','label','color','width','dashes','arrows','smooth']))}};window.graphDump=dump;
+  const dump=()=>{const pos=net.getPositions();return{nodes:nodes.get().map(n=>({...pick(n,['id','label','type','fill','border','bw','sh','image','logo','did','fixed']),...pos[n.id]})),edges:edges.get().map(e=>pick(e,['id','from','to','label','color','width','dashes','arrows','smooth']))}};window.graphDump=dump;
   const save=()=>{try{localStorage.setItem('geoint_graph',JSON.stringify(dump()));stats()}catch{toast('Stockage plein : exporte le graphe en JSON')}};const later=()=>{clearTimeout(later.h);later.h=setTimeout(save,300)};
   const addNode=(type,pos,label)=>{const id=nodes.add(styled({label:label||`Nœud ${nodes.length+1}`,type,x:pos?.x,y:pos?.y}))[0];net.selectNodes([id]);later();return id};
   const removeSelected=()=>{const ns=net.getSelectedNodes(),es=net.getSelectedEdges();if(ns.length){edges.remove(edges.get().filter(e=>ns.includes(e.from)||ns.includes(e.to)).map(e=>e.id));nodes.remove(ns)}if(es.length)edges.remove(es);later();net.redraw();stats()};
   const createEdge=(a,b)=>{if(!a||!b||a===b)return false;if(edges.get({filter:e=>(e.from===a&&e.to===b)||(e.from===b&&e.to===a)}).length)return false;edges.add({...EDGE(''),from:a,to:b});later();stats();return true};
   let linkMode=false;net.__linkStart=null;
   net.on('click',p=>{if(p.nodes?.[0]){const id=p.nodes[0];if(linkMode){if(!net.__linkStart){net.__linkStart=id;net.selectNodes([id]);toast('Nœud de départ sélectionné · clique le second')}else{const ok=createEdge(net.__linkStart,id);net.__linkStart=null;linkMode=false;$('#gLink').classList.remove('pri');toast(ok?'Lien créé':'Lien impossible ou déjà présent')}}}});
-  net.on('dragEnd',later);net.on('stabilizationIterationsDone',()=>{net.setOptions({physics:false});later()});
+  net.on('dragEnd',later);nodes.on('*',later);edges.on('*',later);net.on('stabilizationIterationsDone',()=>{net.setOptions({physics:false});later()});
   net.on('doubleClick',p=>{if(p.nodes?.[0])editNode(p.nodes[0]);else if(p.edges?.[0])editEdge(p.edges[0]);else addNode($('#gType').value,p.pointer.canvas)});
   $('#gAdd').onclick=()=>{try{addNode($('#gType').value,null,$('#gLabel').value.trim());$('#gLabel').value=''}catch(e){toast('Impossible d’ajouter le nœud : '+e.message)}};
   $('#gNew').onclick=()=>{if(confirm('Créer un nouveau graphe et effacer celui-ci ?')){nodes.clear();edges.clear();addNode($('#gType').value,null,'Cible');net.fit({animation:true});later()}};
