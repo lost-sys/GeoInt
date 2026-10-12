@@ -481,27 +481,8 @@ async function callAI(req){
   const errs=[],list=providers();
   for(const P of list){
     if(failed.has(P.id))continue;
-    try{
-      let t=P.id==='gemini'?await gCall(req):await oaCall(P,req);
-      
-      // Nettoyage de sécurité pour extraire uniquement le JSON si l'IA a ajouté du texte superflu
-      if (typeof t === 'string') {
-        const firstIdx = t.indexOf('{');
-        const lastIdx = t.lastIndexOf('}');
-        if (firstIdx !== -1 && lastIdx !== -1 && lastIdx > firstIdx) {
-          t = t.substring(firstIdx, lastIdx + 1);
-        }
-      }
-
-      lastAI=P.name;
-      $('#who').textContent='IA utilisée : '+P.name;
-      return t;
-    }
-    catch(e){
-      failed.add(P.id);
-      errs.push(`${P.name} : ${e.message.slice(0,260)}`);
-      toast(`${P.name} indisponible → IA suivante…`);
-    }
+    try{const t=P.id==='gemini'?await gCall(req):await oaCall(P,req);lastAI=P.name;$('#who').textContent='IA utilisée : '+P.name;return t}
+    catch(e){failed.add(P.id);errs.push(`${P.name} : ${e.message.slice(0,260)}`);toast(`${P.name} indisponible → IA suivante…`)}
   }
   throw new Error(list.length?'Aucune IA disponible. '+errs.join(' || '):'Aucune clé API configurée. Le mode économique reste gratuit côté Gemini mais nécessite quand même une clé API gratuite.')
 }
@@ -542,7 +523,7 @@ function renderChrono(j,loc){
   const em=exifDate.match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d)/);if(em){iso=`${em[1]}-${em[2]}-${em[3]}`;hh=`${em[4]}:${em[5]}`;src=' (EXIF)'}
   const tz=typeof C.utc_offset==='number'?C.utc_offset:(loc?Math.round(loc[1]/15):0),sn=loc&&iso?sunInfo(loc[0],loc[1],iso,tz,hh):null;
   const dir=a=>['N','NE','E','SE','S','SO','O','NO'][Math.round(a/45)%8];
-  const sunRows=sn?`<span>Soleil${src}</span><span>${sn.polar?'jour ou nuit polaire':`lever ${sn.rise} · midi ${sn.noon} · coucher ${sn.set}`}</span>`+(sn.el!==undefined?`<span>À ${hh}</span><span>hauteur ${sn.el.toFixed(0)}° · azimut ${sn.az.toFixed(0)}° ${dir(sn.az)}${sn.el<0?' <b class="warn">⚠ soleil couché : heure incohérente</b>':''}</span>`):'';
+  const sunRows=sn?`<span>Soleil${src}</span><span>${sn.polar?'jour ou nuit polaire':`lever ${sn.rise} · midi ${sn.noon} · coucher ${sn.set}`}</span>`+(sn.el!==undefined?`<span>À ${hh}</span><span>hauteur ${sn.el.toFixed(0)}° · azimut ${sn.az.toFixed(0)}° ${dir(sn.az)}${sn.el<0?' <b class="warn">⚠ soleil couché : heure incohérente</b>':''}</span>`:''):'';
   $('#chrono').innerHTML=`<div style="display:flex;gap:14px;align-items:baseline;flex-wrap:wrap"><span class="mono" style="font-size:30px;color:var(--acc)">${esc(C.hour_best||'—')}</span><span class="mono" style="color:var(--mut)">${esc(C.hour_range||'')}${C.hour_pm_min?' (± '+Math.round(C.hour_pm_min)+' min)':''}</span></div>
 <div class="mono" style="margin-top:4px"><span style="color:var(--acc)">📅 ${esc(C.date_range||'—')}</span> <span style="color:var(--mut)">${esc(C.date_best||'')}</span></div>
 <div class="kv" style="margin:8px 0"><span>Période</span><span>${esc(C.daylight||'—')}</span><span>Saison</span><span>${esc([C.season,C.month_range].filter(Boolean).join(' · ')||'—')}</span><span>Température</span><span>${esc(C.temp_c||'—')}</span><span>Météo</span><span>${esc(C.weather||'—')}</span><span>Fiabilité</span><span>${Math.round(C.confidence||0)}%</span>${exifDate?`<span>Date EXIF</span><span>${esc(exifDate)}</span>`:''}${sunRows}</div>
@@ -940,6 +921,8 @@ async function renegotiateVoicePeer(peerKey){
 function getVoiceVolume(){const v=Number($('#voiceVolume')?.value);return Number.isFinite(v)?Math.max(0,Math.min(1,v/100)):1}
 function refreshVoiceStage(){const stage=$('#voiceStage');if(!stage)return;const vids=[...stage.querySelectorAll('video')].filter(v=>v.srcObject&&v.srcObject.getVideoTracks().some(t=>t.readyState==='live'&&!t.muted));stage.style.display=vids.length?'block':'none';stage.classList.toggle('multi',vids.length>1)}
 async function handleVoiceSignal(s,peers){const peer=peers.find(p=>p.key===s.from);if(!peer)return;let pc=await ensureVoicePeer(peer,false);const x=voicePeers.get(peer.key);try{if(s.type==='offer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c);const ans=await pc.createAnswer();await pc.setLocalDescription(ans);await signalVoice(peer.key,'answer',pc.localDescription)}else if(s.type==='answer'){await pc.setRemoteDescription(s.payload);for(const c of x.queue.splice(0))await pc.addIceCandidate(c)}else if(s.type==='candidate'){if(pc.remoteDescription)await pc.addIceCandidate(s.payload);else x.queue.push(s.payload)}}catch(e){console.warn('WebRTC',e)}}
+function applyVoiceAudio(){voiceAudio.forEach(a=>{a.muted=voiceDeafened||false;a.volume=getVoiceVolume()});document.querySelectorAll('[data-voice]').forEach(a=>{a.muted=voiceDeafened});document.querySelectorAll('.remoteScreenVideo').forEach(v=>{v.muted=voiceDeafened;v.volume=getVoiceVolume()})}
+function applyLocalMute(){if(voiceStream)voiceStream.getAudioTracks().forEach(t=>t.enabled=!voiceMuted);if(voiceMuted)setSpeaking(getUser(),false)}
 function renderVoicePeers(peers){$('#voiceList').innerHTML=peers.map(p=>`<div class="voiceUser" data-vpeer="${esc(p.key)}"><img class="chatAvatar voiceMiniAvatar" src="${esc(avatarData(p.avatar,p.name))}" alt=""><span class="vname"><span class="voiceDot"></span>${p.serverMuted?'🔇 ':''}${p.serverDeafened?'🔕 ':''}<span data-profile="${esc(p.key)}" style="cursor:pointer"><b>${esc(p.name)}</b>${roleHtml(p.roles)}</span>${hasPermission('mute_members')&&p.key!==getUser()?`<button class="chatMod" data-vmodmute="${esc(p.key)}">${p.serverMuted?'Unmute':'Mute'}</button><button class="chatMod" data-vmoddeaf="${esc(p.key)}">${p.serverDeafened?'Uncasque':'Casque'}</button>`:''}</span></div>`).join('')||'<div style="color:var(--mut)">Salon vide.</div>';if(voiceSpeaking)setSpeaking(getUser(),true);$('#voiceList').querySelectorAll('[data-profile]').forEach(b=>b.onclick=()=>openProfile(b.dataset.profile));
   $('#voiceList').querySelectorAll('[data-vmodmute]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmodmute,'server_mute',!b.textContent.includes('Unmute')));$('#voiceList').querySelectorAll('[data-vmoddeaf]').forEach(b=>b.onclick=()=>moderate(b.dataset.vmoddeaf,'server_deafen',!b.textContent.includes('Uncasque')))}
 async function refreshVoiceChannelMembers(){
