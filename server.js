@@ -10,6 +10,12 @@ const SUPABASE_URL = String(process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_SECRET_KEY);
 
+// IA du mode économique : la clé reste côté serveur (Render), jamais dans le navigateur.
+const ECONOMIC_AI_API_KEY = process.env.ECONOMIC_AI_API_KEY || process.env.GEMINI_API_KEY || '';
+const ECONOMIC_AI_MODEL = /^[a-zA-Z0-9._-]+$/.test(process.env.ECONOMIC_AI_MODEL || '')
+  ? process.env.ECONOMIC_AI_MODEL
+  : 'gemini-2.5-flash-lite';
+
 const defaults = () => ({
   users:{}, sessions:{}, records:[], logs:[], chat:{},
   updates:[{ id:'u1', ts:Date.now(), author:'Lost', title:'GeoInt v11', text:'Salons, rôles avancés, modération, vocal WebRTC et persistance des comptes, messages, rôles et enregistrements.', pinned:true }],
@@ -148,6 +154,63 @@ const httpServer = http.createServer(async (req, res) => {
       return token(res, key);
     }
     const me = authUser(req); if (!me) throw E(401, 'Connexion requise');
+
+    /* ---- IA économique : Gemini côté serveur ---- */
+    if (p === '/api/ai/economic' && m === 'POST') {
+      if (!ECONOMIC_AI_API_KEY) {
+        throw E(503, 'Mode économique non configuré : ajoute ECONOMIC_AI_API_KEY dans les variables d’environnement Render.');
+      }
+      const incoming = Array.isArray(B.parts) ? B.parts : [];
+      if (!incoming.length || incoming.length > 20) throw E(400, 'Contenu IA invalide');
+      const parts = incoming.map(part => {
+        if (typeof part?.text === 'string') {
+          if (part.text.length > 100000) throw E(400, 'Texte IA trop volumineux');
+          return { text: part.text };
+        }
+        const image = part?.inline_data;
+        if (image && typeof image.data === 'string' &&
+            /^image\/(jpeg|png|webp)$/i.test(image.mime_type || '') &&
+            image.data.length <= 3500000 &&
+            /^[A-Za-z0-9+/]+={0,2}$/.test(image.data)) {
+          return { inlineData: { mimeType: image.mime_type, data: image.data } };
+        }
+        throw E(400, 'Partie de requête IA invalide');
+      });
+      const payload = { contents: [{ role: 'user', parts }] };
+      if (B.schema && typeof B.schema === 'object' && !Array.isArray(B.schema)) {
+        payload.generationConfig = { responseMimeType: 'application/json', responseSchema: B.schema };
+      }
+      let upstream;
+      try {
+        upstream = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/' + ECONOMIC_AI_MODEL + ':generateContent',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': ECONOMIC_AI_API_KEY },
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(60000)
+          }
+        );
+      } catch (err) {
+        console.error('IA économique inaccessible:', err.name || 'erreur réseau');
+        throw E(502, 'Service IA économique inaccessible. Réessaie dans un instant.');
+      }
+      let result = {};
+      try { result = await upstream.json(); } catch {}
+      if (!upstream.ok) {
+        const detail = String(result.error?.message || '').slice(0, 240);
+        console.error('IA économique:', upstream.status, detail);
+        if (upstream.status === 400) throw E(502, 'Requête refusée par Gemini : vérifie le modèle et le format envoyé.');
+        if (upstream.status === 401 || upstream.status === 403) throw E(502, 'Clé Gemini invalide ou accès API non autorisé. Vérifie ECONOMIC_AI_API_KEY sur Render.');
+        if (upstream.status === 429) throw E(503, 'Quota Gemini atteint. Réessaie plus tard.');
+        throw E(502, 'Gemini a renvoyé une erreur (' + upstream.status + ').');
+      }
+      const text = (result.candidates?.[0]?.content?.parts || [])
+        .map(part => typeof part.text === 'string' ? part.text : '')
+        .join('');
+      if (!text) throw E(502, 'Gemini a renvoyé une réponse vide. Réessaie.');
+      return J(res, 200, { ok: true, text, model: ECONOMIC_AI_MODEL });
+    }
     if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'' });
     if (p === '/api/me/profile' && m === 'PATCH') {
       const u=DB.users[me.key];
