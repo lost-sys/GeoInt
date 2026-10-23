@@ -105,5 +105,6 @@ function syncCompletion(c, finished){
  synced[c.id]=true;
  if(typeof window.api==='function')window.api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:true})}).catch(()=>{synced[c.id]=false;});
 }
+window.renderCourses = render; // Compatibilité avec le gestionnaire d’onglets GeoInt existant.
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render);else render();
 })();
