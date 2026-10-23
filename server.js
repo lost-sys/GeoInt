@@ -14,7 +14,7 @@ const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_SECRET_KEY);
 const ECONOMIC_AI_API_KEY = process.env.ECONOMIC_AI_API_KEY || process.env.GEMINI_API_KEY || '';
 const ECONOMIC_AI_MODEL = /^[a-zA-Z0-9._-]+$/.test(process.env.ECONOMIC_AI_MODEL || '')
   ? process.env.ECONOMIC_AI_MODEL
-  : 'gemini-2.5-flash-lite';
+  : 'gemini-3.5-flash-lite';
 
 const defaults = () => ({
   users:{}, sessions:{}, records:[], logs:[], chat:{},
