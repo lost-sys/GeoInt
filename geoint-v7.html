@@ -145,6 +145,45 @@ dialog{position:relative}
 .avatarFallback{display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--mut);background:#151a20;border:1px solid var(--line);border-radius:50%}
 .coursesLayout{display:grid;grid-template-columns:280px minmax(0,1fr);gap:12px;height:100%;min-height:0}.courseList{overflow:auto}.courseContent{overflow:auto}.courseBtn{width:100%;text-align:left;margin-bottom:6px}.courseBtn.on{border-color:var(--acc);background:#1a1d21}.courseProgress{height:7px;background:#20262d;border-radius:99px;overflow:hidden;margin:10px 0}.courseProgress i{display:block;height:100%;background:var(--acc)}.courseStep{border-left:3px solid var(--line);padding:10px 12px;margin:10px 0;background:#0e1216;border-radius:0 8px 8px 0}.courseStep h3{margin:0 0 5px}.courseCode{background:#080a0c;border:1px solid var(--line);padding:10px;border-radius:8px;overflow:auto;font:12px/1.5 'IBM Plex Mono',monospace}.courseChecklist{display:grid;gap:7px}.courseChecklist label{display:flex;gap:8px;align-items:flex-start}.aboutWrap{max-width:850px;margin:0 auto;display:grid;gap:12px}.aboutHero{text-align:center;padding:28px}.aboutLogo{font-size:40px;font-weight:700;letter-spacing:.06em}.aboutLogo b{color:var(--acc)}.founderCard{display:flex;align-items:center;gap:14px}.founderAvatar{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#171b20;border:2px solid var(--acc);font-size:26px;font-weight:700}.mutedText{color:var(--mut);font-size:12px}@media(max-width:800px){.coursesLayout{grid-template-columns:1fr;height:auto}.courseList{max-height:280px}.courseContent{min-height:500px}.aboutWrap{width:100%}}
 .voiceVideoHint{position:absolute;bottom:8px;left:8px;right:8px;background:rgba(0,0,0,.72);padding:7px 9px;border-radius:7px;font-size:11px;display:none;z-index:3}
+
+/* ---------- Barres de défilement GeoInt : thème sombre ---------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3b434d #101318;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: #101318;
+  border-radius: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #343c46;
+  border: 2px solid #101318;
+  border-radius: 10px;
+  min-height: 28px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: #ffb020;
+}
+*::-webkit-scrollbar-corner {
+  background: #101318;
+}
+/* La liste des cours garde une barre discrète, assortie au panneau. */
+.courseList, .courseContent, .courseList * , .courseContent * {
+  scrollbar-color: #343c46 #12161b;
+}
+.courseList::-webkit-scrollbar-track,
+.courseContent::-webkit-scrollbar-track {
+  background: #12161b;
+}
+.courseList::-webkit-scrollbar-thumb,
+.courseContent::-webkit-scrollbar-thumb {
+  border-color: #12161b;
+}
+
 </style>
 </head>
 <body>
