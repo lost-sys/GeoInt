@@ -324,6 +324,7 @@ const httpServer = http.createServer(async (req, res) => {
       }
       if(cr && !cr[3]) {
         const msg=DB.chat[roomId].find(x=>x.id===cr[2]); if(!msg) throw E(404,'Message introuvable');
+        if(m==='PATCH' && Object.prototype.hasOwnProperty.call(B,'text')) { if(msg.key!==me.key) throw E(403,'Tu peux modifier uniquement tes propres messages'); const text=String(B.text||'').trim(); if(!text) throw E(400,'Message vide'); if(text.length>500) throw E(400,'500 caractères maximum'); msg.text=text; msg.editedAt=Date.now(); save().catch(e=>console.error('Sauvegarde modification message:',e)); return J(res,200,{ok:true,editedAt:msg.editedAt}); }
         if(m==='DELETE') { if(msg.key!==me.key && !hasPerm(me,'moderate_chat')) throw E(403,'Permission insuffisante : modérer les messages'); DB.chat[roomId]=DB.chat[roomId].filter(x=>x!==msg); await save(); return J(res,200,{ok:true}); }
         if(m==='PATCH') { if(!hasPerm(me,'pin_records')) throw E(403,'Permission insuffisante : épingler'); msg.pinned=!!B.pinned; await save(); return J(res,200,{ok:true}); }
       }
