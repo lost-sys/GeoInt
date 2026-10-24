@@ -39,6 +39,22 @@ h3{margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:.12em;c
 .mh{position:relative;min-height:0}#map{position:absolute;inset:0}#vis{position:absolute;inset:0;border-radius:var(--r);border:1px solid var(--line);background:#0b0d10}
 #t-map,#t-graph{grid-template-rows:auto minmax(0,1fr);gap:8px}#t-img .col{min-height:0}.bar2{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 input,select{background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 10px;font:inherit}
+/* Contrôles natifs harmonisés avec le thème GeoInt */
+textarea{background:#0b0d10;color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:inherit;resize:vertical}
+input::placeholder,textarea::placeholder{color:var(--mut);opacity:.85}
+input[type=file]{max-width:100%;padding:8px;background:var(--panel);border:1px solid var(--line);border-radius:9px;color:var(--mut);font:inherit}
+input[type=file]::file-selector-button{margin-right:9px;padding:6px 10px;background:var(--line);color:var(--tx);border:1px solid #394451;border-radius:6px;font:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+input[type=file]::file-selector-button:hover{background:var(--acc);border-color:var(--acc);color:#111}
+input[type=range]{appearance:none;-webkit-appearance:none;height:7px;padding:0;border:1px solid #59636e;border-radius:999px;background:var(--line);cursor:pointer;accent-color:var(--ok)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--ok);border:1px solid #0b0d10;box-shadow:0 0 0 2px #3ddc9730}
+input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--ok);border:1px solid #0b0d10;box-shadow:0 0 0 2px #3ddc9730}
+input[type=checkbox],input[type=radio]{accent-color:var(--acc);width:15px;height:15px;vertical-align:middle;cursor:pointer}
+input[type=color]{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:3px}
+select{cursor:pointer}
+select option{background:#12161b;color:#e6e9ec}
+input:disabled,textarea:disabled,select:disabled{opacity:.5;cursor:not-allowed}
+input[type=number]{font-variant-numeric:tabular-nums}
+
 dialog{background:var(--panel);color:var(--tx);border:1px solid var(--acc);border-radius:var(--r);max-width:440px;width:92%}
 dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 #toast{position:fixed;bottom:16px;right:16px;background:var(--panel);border:1px solid var(--acc);padding:8px 14px;border-radius:8px;display:none;z-index:99}
