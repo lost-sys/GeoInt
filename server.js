@@ -40,7 +40,7 @@ const defaults = () => ({
 
 function normalizeDB(db){
   const d = db && typeof db === 'object' ? db : defaults();
-  d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {};
+  d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {}; d.moderation ??= { strikes:{} }; d.moderation.strikes ??= {};
   d.updates ??= defaults().updates; d.seq ??= 0; d.roles ??= defaults().roles; d.channels ??= defaults().channels;
   Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.premium=!!u.premium; u.nameGradient=typeof u.nameGradient==='string'?u.nameGradient:'none'; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; u.stats??={totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0}; u.stats.totalSeconds=Number(u.stats.totalSeconds)||0; u.stats.searches=Number(u.stats.searches)||0; u.stats.peopleFound=Number(u.stats.peopleFound)||0; u.stats.coursesCompleted=Number(u.stats.coursesCompleted)||0; });
   if(d.users.lost){d.users.lost.roles=['owner'];d.users.lost.premium=true;}
@@ -118,6 +118,36 @@ const channelView = c => ({id:c.id,name:c.name,type:c.type,position:c.position,r
 const authUser = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''), s = DB.sessions[sha(t)];
   if (!t || !s || s.exp < Date.now() || !DB.users[s.u]) return null; const u=DB.users[s.u]; return { key:s.u, name:u.name, admin:s.u==='lost', roles:userRoles({...u,key:s.u}), permissions:u?.roles?.flatMap(id=>roleById(id)?.permissions||[])||[] }; };
 const chatAntiSpam = new Map();
+// Modération automatique en étapes : avertissement, blocage/suppression, puis silence temporaire.
+// Les infractions sont conservées par utilisateur et expirent après 24 h.
+const MODERATION_RULES = [
+  { type:'insulte', re:/(?:\\b(?:connard|connasse|encul[eé]?|salope|batard|bâtard|fdp|pute|branleur|branleuse)\\b|fils de pute|nique ta m[eè]re|va te faire foutre)/iu },
+  { type:'propos agressifs', re:/(?:\\b(?:je vais te tuer|je vais te retrouver|je vais te frapper|cr[eè]ve)\\b)/iu }
+];
+const detectModerationViolation = text => MODERATION_RULES.find(rule => rule.re.test(text)) || null;
+const applyAutoModeration = async (me, text, roomId, violation) => {
+  const now=Date.now(), key=me.key;
+  DB.moderation ??= { strikes:{} }; DB.moderation.strikes ??= {};
+  const previous=DB.moderation.strikes[key] || { count:0, lastAt:0 };
+  const count=(now-(Number(previous.lastAt)||0)>86400000?0:Number(previous.count)||0)+1;
+  DB.moderation.strikes[key]={count,lastAt:now,type:violation.type};
+  let message, action='avertissement';
+  if(count===1){
+    message='Modération GeoInt : avertissement. Ton message contient des propos interdits. Répète pas ce comportement.';
+  }else if(count===2){
+    action='message bloqué';
+    message='Modération GeoInt : ton message a été bloqué car il contient des propos interdits. Prochaine infraction : silence temporaire.';
+  }else{
+    action='silence automatique';
+    const minutes=count>=4?30:5;
+    const user=DB.users[key];
+    if(user && key!=='lost') user.timeoutUntil=Math.max(now,Number(user.timeoutUntil)||0)+minutes*60000;
+    message='Modération GeoInt : message bloqué et silence de '+minutes+' minutes pour récidive.';
+  }
+  log('GeoInt Bot',action,{title:me.name},'salon='+roomId+'; type='+violation.type+'; infraction='+count);
+  await save();
+  throw E(403,message);
+};
 const fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
 const bad = k => { const f = fails[k] = fails[k] && Date.now() - fails[k].t < 60000 ? fails[k] : { n: 0 }; f.n++; f.t = Date.now(); };
 const lastMsg = {};
@@ -310,8 +340,11 @@ const httpServer = http.createServer(async (req, res) => {
       if(croot && m==='POST') {
         if(channel.readonly && !hasPerm(me,'post_announcements')) throw E(403,'Ce salon est en lecture seule');
         if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
-        const text=filterProfanity(String(B.text||'').trim()).slice(0,2000);
-        if(!text) throw E(400,'Message vide');
+        const rawText=String(B.text||'').trim().slice(0,2000);
+        if(!rawText) throw E(400,'Message vide');
+        const violation=detectModerationViolation(rawText);
+        if(violation && me.key!=='lost' && !hasPerm(me,'moderate_chat')) await applyAutoModeration(me,rawText,roomId,violation);
+        const text=filterProfanity(rawText).slice(0,2000);
         const now=Date.now(), antiKey=me.key+'|'+roomId, recent=chatAntiSpam.get(antiKey)||{times:[],lastAt:0,lastText:''};
         recent.times=recent.times.filter(ts=>now-ts<10000);
         if(now-recent.lastAt<1500) throw E(429,'Anti-spam : attends une seconde avant de renvoyer un message.');
