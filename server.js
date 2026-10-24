@@ -40,7 +40,7 @@ const defaults = () => ({
 
 function normalizeDB(db){
   const d = db && typeof db === 'object' ? db : defaults();
-  d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {}; d.moderation ??= { strikes:{} }; d.moderation.strikes ??= {};
+  d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {}; d.dms ??= {}; d.moderation ??= { strikes:{} }; d.moderation.strikes ??= {};
   d.updates ??= defaults().updates; d.seq ??= 0; d.roles ??= defaults().roles; d.channels ??= defaults().channels;
   Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.premium=!!u.premium; u.nameGradient=typeof u.nameGradient==='string'?u.nameGradient:'none'; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; u.stats??={totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0}; u.stats.totalSeconds=Number(u.stats.totalSeconds)||0; u.stats.searches=Number(u.stats.searches)||0; u.stats.peopleFound=Number(u.stats.peopleFound)||0; u.stats.coursesCompleted=Number(u.stats.coursesCompleted)||0; });
   if(d.users.lost){d.users.lost.roles=['owner'];d.users.lost.premium=true;}
