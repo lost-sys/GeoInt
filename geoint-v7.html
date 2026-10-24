@@ -1375,70 +1375,62 @@ function updateChatTimeoutTimer(){const el=$('#chatTimeoutTimer');if(!el)return;
 setInterval(updateChatTimeoutTimer,1000);
 
 const GEO_COMMANDS = [
-['!help','Ouvre le panneau de commandes'],['!commands','Alias de !help'],['!aide','Aide en français'],['!ping','Teste le bot'],['!bot','Informations sur le bot'],['!rules','Affiche les règles'],['!regles','Alias de !rules'],['!me','Affiche ton pseudo'],['!whoami','Alias de !me'],['!room','Salon actuel'],['!salon','Alias de !room'],['!time','Heure locale'],['!date','Date locale'],['!uptime','Temps depuis le chargement'],['!count','Messages chargés'],['!online','État du chat'],['!profile','Ouvre ton profil'],['!refresh','Actualise le chat'],['!clear','Nettoie ton affichage local'],['!shrug','Émoji shrug'],['!tableflip','Retourne la table'],['!unflip','Remet la table'],['!lenny','Visage Lenny'],['!coin','Lance une pièce'],['!dice','Lance un dé'],['!roll','Alias de !dice'],['!8ball','Réponse aléatoire'],['!choose','Choisit entre des options'],['!reverse','Inverse un texte'],['!upper','Majuscules'],['!lower','Minuscules'],['!length','Compte les caractères'],['!avatar','Conseil avatar'],['!support','Conseils de support'],['!report','Aide au signalement'],['!modhelp','Commandes de modération'],['!warn','Avertissement (réservé)'],['!timeout','Silence (réservé)'],['!untimeout','Retire le silence (réservé)'],['!purge','Nettoyage (réservé)'],['!slowmode','Mode lent (réservé)'],['!lock','Verrouillage (réservé)'],['!unlock','Déverrouillage (réservé)'],['!announce','Annonce (réservé)'],['!poll','Sondage'],['!suggest','Envoyer une suggestion'],['!bug','Signaler un bug'],['!feedback','Envoyer un retour'],['!privacy','Infos de confidentialité'],['!cancel','Annule une action'],['!version','Version du bot']
+['!aide','Affiche le panneau de commandes'],['!ping','Vérifie que le bot répond'],['!bot','Affiche la présentation du bot'],['!bio','Modifie la bio du bot (fondateur)'],['!photo','Modifie la photo du bot (fondateur)'],['!nom','Modifie le nom affiché du bot (fondateur)'],['!sondage','Crée un sondage avec une question et deux choix'],['!annonce','Prépare une annonce à publier dans le salon'],['!regles','Affiche les règles du chat'],['!heure','Affiche l’heure locale'],['!date','Affiche la date'],['!de','Choisit au hasard entre plusieurs choix'],['!de6','Lance un dé à six faces'],['!piece','Lance une pièce virtuelle'],['!8ball','Répond à une question au hasard'],['!inverse','Inverse un texte'],['!majuscule','Convertit un texte en majuscules'],['!minuscule','Convertit un texte en minuscules'],['!longueur','Compte les caractères'],['!monprofil','Affiche ton pseudo'],['!actualiser','Actualise les messages du salon'],['!aide-modo','Explique les outils de modération disponibles'],['!signaler','Explique comment signaler un problème'],['!suggestion','Aide à rédiger une suggestion'],['!bug','Aide à signaler un bug'],['!confidentialite','Explique qui voit les réponses du bot'],['!version','Affiche la version du bot']
 ];
 const GEO_BOT_STARTED=Date.now();
+function getGeoBotProfile(){try{return Object.assign({name:'GeoInt Bot',bio:'Assistant du serveur GeoInt.',avatar:'🤖'},JSON.parse(localStorage.getItem('geoint_bot_profile')||'{}'))}catch{return {name:'GeoInt Bot',bio:'Assistant du serveur GeoInt.',avatar:'🤖'}}}
+function setGeoBotProfile(p){localStorage.setItem('geoint_bot_profile',JSON.stringify(p))}
 function appendGeoBotMessage(message){
  const box=document.getElementById('chatMessages');if(!box)return;
- const row=document.createElement('div');row.className='chatMsg';
- row.innerHTML='<div class="chatRow"><div class="chatAvatar avatarFallback" style="display:flex;align-items:center;justify-content:center">🤖</div><div class="chatContent"><div class="meta"><b style="color:var(--acc)">GeoInt Bot</b> <span class="badge">BOT</span> · '+new Date().toLocaleTimeString('fr-FR')+'</div><div class="body chatRich"></div></div></div>';
- row.querySelector('.body').textContent=String(message);box.appendChild(row);box.scrollTop=box.scrollHeight;
+ const p=getGeoBotProfile(),row=document.createElement('div');row.className='chatMsg';
+ row.innerHTML='<div class="chatRow"><div class="chatAvatar" data-bot-avatar style="display:flex;align-items:center;justify-content:center;overflow:hidden"></div><div class="chatContent"><div class="meta"><b data-bot-name style="color:var(--acc)"></b> <span class="badge">BOT</span> · '+new Date().toLocaleTimeString('fr-FR')+'</div><div class="body chatRich"></div></div></div>';
+ const av=row.querySelector('[data-bot-avatar]');if(/^https?:\/\//i.test(p.avatar)){const img=document.createElement('img');img.src=p.avatar;img.alt='';img.style.cssText='width:100%;height:100%;object-fit:cover';av.appendChild(img)}else av.textContent=p.avatar||'🤖';
+ row.querySelector('[data-bot-name]').textContent=p.name;row.querySelector('.body').textContent=String(message);row.querySelector('.body').title=p.bio;box.appendChild(row);box.scrollTop=box.scrollHeight;
 }
 function showGeoHelp(){
- let modal=document.getElementById('geoCommandHelp'),page=0,query='';
- if(!modal){modal=document.createElement('div');modal.id='geoCommandHelp';modal.style.cssText='position:fixed;inset:0;z-index:100000;background:#050713d9;display:flex;align-items:center;justify-content:center;padding:16px';
- modal.innerHTML='<section style="width:min(850px,100%);height:min(680px,90vh);display:flex;flex-direction:column;background:var(--panel,#111827);color:var(--tx,#fff);border:1px solid var(--acc,#ffb020);border-radius:18px;padding:20px;box-shadow:0 20px 80px #000a"><header style="display:flex;align-items:center;justify-content:space-between;gap:12px"><div><h2 style="margin:0">🤖 GeoInt Bot</h2><p style="margin:5px 0 14px;color:var(--mut)">Centre de commandes · sélectionne une commande pour la préparer</p></div><button id="geoCommandClose" type="button">Fermer ✕</button></header><input id="geoCommandSearch" placeholder="🔎 Rechercher une commande…" style="width:100%;box-sizing:border-box;padding:11px;border-radius:9px;margin-bottom:12px"><div id="geoCommandList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;overflow:auto;flex:1;align-content:start"></div><footer style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:14px"><button id="geoCommandPrev">← Précédent</button><span id="geoCommandPage" style="color:var(--mut);font-size:12px"></span><button id="geoCommandNext">Suivant →</button></footer></section>';
- document.body.appendChild(modal);
- }
- const search=modal.querySelector('#geoCommandSearch');if(search.value!==query)search.value=query;
- const render=()=>{const q=search.value.trim().toLowerCase(),filtered=GEO_COMMANDS.filter(c=>c[0].includes(q)||c[1].toLowerCase().includes(q)),pages=Math.max(1,Math.ceil(filtered.length/12));page=Math.max(0,Math.min(page,pages-1));modal.querySelector('#geoCommandList').innerHTML=filtered.slice(page*12,page*12+12).map(c=>'<button type="button" data-geocmd="'+c[0]+'" style="text-align:left;padding:12px;border-radius:10px;background:var(--bg,#0b0d10)"><b style="color:var(--acc)">'+c[0]+'</b><div style="font-size:12px;color:var(--mut);margin-top:5px">'+c[1]+'</div></button>').join('')||'<p>Aucune commande trouvée.</p>';modal.querySelector('#geoCommandPage').textContent=(filtered.length?page+1:0)+' / '+pages+' · '+filtered.length+' commande(s)';modal.querySelector('#geoCommandPrev').disabled=page<=0;modal.querySelector('#geoCommandNext').disabled=page>=pages-1;modal.querySelectorAll('[data-geocmd]').forEach(btn=>btn.onclick=()=>{const input=document.getElementById('chatInput');if(input){input.value=btn.dataset.geocmd+' ';input.focus()}modal.remove()})};
- search.oninput=()=>{page=0;render()};modal.querySelector('#geoCommandPrev').onclick=()=>{page--;render()};modal.querySelector('#geoCommandNext').onclick=()=>{page++;render()};modal.querySelector('#geoCommandClose').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};render();
+ const old=document.getElementById('geoCommandHelp');if(old)old.remove();
+ const modal=document.createElement('div');modal.id='geoCommandHelp';modal.style.cssText='position:fixed;inset:0;z-index:100000;background:#050713e8;display:flex;align-items:center;justify-content:center;padding:16px';
+ modal.innerHTML='<section style="width:min(850px,100%);height:min(690px,90vh);display:flex;flex-direction:column;background:var(--panel,#111827);color:var(--tx,#fff);border:1px solid var(--acc,#ffb020);border-radius:18px;padding:20px;box-shadow:0 20px 80px #000a"><header style="display:flex;justify-content:space-between;gap:12px"><div><h2 style="margin:0">🤖 Commandes GeoInt</h2><p style="color:var(--mut);margin:5px 0 14px">En français · clique sur une commande pour voir son format</p></div><button id="geoCommandClose">Fermer ✕</button></header><input id="geoCommandSearch" placeholder="Rechercher une commande…" style="padding:11px;margin-bottom:10px;border-radius:9px"><div id="geoCommandList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px;overflow:auto;flex:1;align-content:start"></div><footer style="display:flex;align-items:center;justify-content:space-between;margin-top:12px"><button id="geoCommandPrev">← Précédent</button><span id="geoCommandPage"></span><button id="geoCommandNext">Suivant →</button></footer></section>';
+ document.body.appendChild(modal);let page=0;
+ const render=()=>{const q=modal.querySelector('#geoCommandSearch').value.trim().toLowerCase(),list=GEO_COMMANDS.filter(c=>(c[0]+' '+c[1]).toLowerCase().includes(q)),pages=Math.max(1,Math.ceil(list.length/10));page=Math.max(0,Math.min(page,pages-1));modal.querySelector('#geoCommandList').innerHTML=list.slice(page*10,page*10+10).map(c=>'<button type="button" data-cmd="'+c[0]+'" style="text-align:left;padding:12px;border-radius:10px"><b style="color:var(--acc)">'+c[0]+'</b><div style="font-size:12px;color:var(--mut);margin-top:5px">'+c[1]+'</div></button>').join('')||'<p>Aucune commande trouvée.</p>';modal.querySelector('#geoCommandPage').textContent=(list.length?page+1:0)+' / '+pages;modal.querySelector('#geoCommandPrev').disabled=page===0;modal.querySelector('#geoCommandNext').disabled=page>=pages-1;modal.querySelectorAll('[data-cmd]').forEach(btn=>btn.onclick=()=>{const cmd=btn.dataset.cmd;modal.remove();const input=document.getElementById('chatInput');if(input){const examples={'!sondage':'!sondage Votre question ? | Oui | Non','!annonce':'!annonce Votre annonce','!de':'!de pomme | banane | fraise','!bio':'!bio Ta nouvelle bio','!photo':'!photo https://exemple.fr/image.png','!nom':'!nom Nom du bot','!inverse':'!inverse Bonjour','!majuscule':'!majuscule ton texte','!minuscule':'!minuscule TON TEXTE','!8ball':'!8ball Est-ce que ça va marcher ?'};input.value=examples[cmd]||cmd+' ';input.focus()}})};
+ modal.querySelector('#geoCommandSearch').oninput=()=>{page=0;render()};modal.querySelector('#geoCommandPrev').onclick=()=>{page--;render()};modal.querySelector('#geoCommandNext').onclick=()=>{page++;render()};modal.querySelector('#geoCommandClose').onclick=()=>modal.remove();modal.onclick=e=>{if(e.target===modal)modal.remove()};render();
 }
 function runGeoCommand(raw){
  const [first,...rest]=raw.trim().split(/\s+/),cmd=first.toLowerCase(),arg=rest.join(' '),choose=a=>a[Math.floor(Math.random()*a.length)];
- const founder=String(getUser()||'').trim().toLowerCase()==='lost';
- if(!founder){appendGeoBotMessage('Désolé, les commandes du bot sont réservées au fondateur.');return true}
- if(['!help','!commands','!aide'].includes(cmd)){showGeoHelp();appendGeoBotMessage('Voici le centre de commandes. Recherche, change de page avec ← / →, puis sélectionne une commande pour la préparer dans la zone de saisie.');return true}
- let answer;
+ if(String(getUser()||'').trim().toLowerCase()!=='lost'){appendGeoBotMessage('Désolé, les commandes du bot sont réservées au fondateur.');return true}
+ if(['!aide','!help','!commands'].includes(cmd)){showGeoHelp();appendGeoBotMessage('Voici mes commandes. Recherche, puis clique sur une commande pour voir un exemple à envoyer.');return true}
+ let answer,profile=getGeoBotProfile();
  switch(cmd){
- case '!ping':answer='🏓 Pong ! Le bot répond correctement.';break;
- case '!bot':answer='🤖 GeoInt Bot est en ligne. Tape !help pour afficher ses commandes.';break;
- case '!rules':case '!regles':answer='📜 Respecte les membres, pas de spam, d’insultes, de menaces ni de harcèlement.';break;
- case '!me':case '!whoami':answer='👤 Tu es connecté en tant que '+getUser()+'.';break;
- case '!room':case '!salon':answer='💬 Salon actuel : '+currentRoom+'.';break;
- case '!time':answer='🕒 Heure locale : '+new Date().toLocaleTimeString('fr-FR');break;
- case '!date':answer='📅 '+new Date().toLocaleDateString('fr-FR',{dateStyle:'full'});break;
- case '!uptime':answer='⏱️ Bot actif depuis '+Math.floor((Date.now()-GEO_BOT_STARTED)/60000)+' minute(s).';break;
- case '!count':answer='💬 '+document.querySelectorAll('#chatMessages .chatMsg').length+' messages chargés dans ce salon.';break;
- case '!online':answer='🟢 Le chat est actif. La liste complète des membres en ligne n’est pas exposée à cette commande.';break;
- case '!profile':{const b=document.querySelector('[data-profile="'+CSS.escape(getUser())+'"]');if(b)b.click();answer='👤 Ouverture de ton profil.';break}
- case '!refresh':loadChat();answer='🔄 Actualisation du chat demandée.';break;
- case '!clear':answer='🧹 Utilise le rechargement du chat pour réafficher les messages.';break;
- case '!shrug':answer='¯\\_(ツ)_/¯';break;case '!tableflip':answer='(╯°□°）╯︵ ┻━┻';break;case '!unflip':answer='┬─┬ ノ( ゜-゜ノ)';break;case '!lenny':answer='( ͡° ͜ʖ ͡°)';break;
- case '!coin':answer='🪙 '+choose(['Pile !','Face !']);break;
- case '!dice':case '!roll':answer='🎲 Résultat : '+(1+Math.floor(Math.random()*6));break;
+ case '!ping':answer='🏓 Pong ! Je réponds correctement.';break;
+ case '!bot':answer='🤖 '+profile.name+' — '+profile.bio;break;
+ case '!bio':if(!arg){answer='Utilisation : !bio Ta nouvelle bio';break}profile.bio=arg;setGeoBotProfile(profile);answer='✅ Ma bio a été mise à jour : '+arg;break;
+ case '!photo':if(!arg){answer='Utilisation : !photo URL_DE_L_IMAGE (lien direct vers une image)';break}if(!/^https?:\/\/\S+\.(png|jpe?g|gif|webp)(\?.*)?$/i.test(arg)){answer='❌ Donne un lien direct vers une image en .png, .jpg, .jpeg, .gif ou .webp.';break}profile.avatar=arg;setGeoBotProfile(profile);answer='✅ Ma photo de profil a été mise à jour.';break;
+ case '!nom':if(!arg){answer='Utilisation : !nom Nouveau nom';break}profile.name=arg.slice(0,40);setGeoBotProfile(profile);answer='✅ Mon nom est maintenant : '+profile.name;break;
+ case '!sondage':{const parts=arg.split('|').map(x=>x.trim());if(parts.length<3||!parts[0]||!parts[1]||!parts[2]){answer='📊 Pour créer un sondage, écris : !sondage Votre question ? | Oui | Non. La question vient en premier, puis les choix séparés par |.';break}const question=parts.shift(),choices=parts.slice(0,6);const row=document.createElement('div');row.className='chatMsg';row.innerHTML='<div class="chatRow"><div class="chatAvatar">📊</div><div class="chatContent"><div class="meta"><b>Sondage · GeoInt Bot</b></div><div class="body"></div><div data-votes style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px"></div><div data-results style="font-size:12px;color:var(--mut);margin-top:8px">0 vote</div></div></div>';row.querySelector('.body').textContent=question;const votes=new Map();const area=row.querySelector('[data-votes]');choices.forEach((c,i)=>{const btn=document.createElement('button');btn.textContent=c;btn.onclick=()=>{votes.set(i,(votes.get(i)||0)+1);const total=[...votes.values()].reduce((a,b)=>a+b,0);row.querySelector('[data-results]').textContent=total+' vote(s) · '+choices.map((name,j)=>name+': '+(votes.get(j)||0)).join(' · ')};area.appendChild(btn)});document.getElementById('chatMessages').appendChild(row);document.getElementById('chatMessages').scrollTop=999999;return true}
+ case '!annonce':answer=arg?'📢 Annonce préparée : '+arg+'\n(Cette annonce est visible uniquement dans ta session.)':'Utilisation : !annonce Le texte de ton annonce';break;
+ case '!regles':answer='📜 Règles : respecte les membres, pas de spam, d’insultes, de menaces ni de harcèlement.';break;
+ case '!heure':answer='🕒 Il est '+new Date().toLocaleTimeString('fr-FR')+'.';break;
+ case '!date':answer='📅 '+new Date().toLocaleDateString('fr-FR',{dateStyle:'full'})+'.';break;
+ case '!de':{const opts=arg.split('|').map(x=>x.trim()).filter(Boolean);answer=opts.length<2?'Utilisation : !de pomme | banane | fraise':'🎯 Je choisis : '+choose(opts);break}
+ case '!de6':answer='🎲 Résultat : '+(1+Math.floor(Math.random()*6));break;case '!piece':answer='🪙 '+choose(['Pile','Face']);break;
  case '!8ball':answer='🎱 '+choose(['Oui, certainement.','C’est probable.','Je ne pense pas.','Réessaie plus tard.','Les signes sont positifs.','Impossible à prédire.']);break;
- case '!choose':{const opts=arg.split('|').map(x=>x.trim()).filter(Boolean);answer=opts.length<2?'Usage : !choose option A | option B':'🎯 Je choisis : '+choose(opts);break}
- case '!reverse':answer=arg?arg.split('').reverse().join(''):'Usage : !reverse ton texte';break;
- case '!upper':answer=arg?arg.toLocaleUpperCase('fr-FR'):'Usage : !upper ton texte';break;
- case '!lower':answer=arg?arg.toLocaleLowerCase('fr-FR'):'Usage : !lower TON TEXTE';break;
- case '!length':answer='🔢 '+arg.length+' caractère(s).';break;
- case '!avatar':answer='👤 Clique sur ton pseudo pour ouvrir ton profil et consulter ton avatar.';break;
- case '!support':answer='🛟 Décris le problème, le salon concerné et les étapes pour le reproduire. Ne partage jamais ton mot de passe.';break;
- case '!report':answer='🚩 Pour signaler un message, contacte un modérateur et indique le salon, l’auteur et le contexte.';break;
- case '!suggest':answer='💡 Envoie ta suggestion aux administrateurs avec le problème actuel et l’amélioration proposée.';break;
- case '!bug':answer='🐞 Décris les étapes pour reproduire le bug, le résultat attendu et ce qui s’est passé.';break;
- case '!feedback':answer='💬 Merci ! Transmets ton retour aux administrateurs avec le maximum de détails utiles.';break;
- case '!privacy':answer='🔒 Les réponses du bot sont locales à ta session : les autres membres ne les voient pas.';break;
- case '!version':answer='ℹ️ GeoInt Bot · commandes de chat v2';break;
- case '!modhelp':answer='🛡️ Les commandes de modération textuelles ne sont pas encore activées. Utilise les outils de modération du site.';break;
- case '!warn':case '!timeout':case '!untimeout':case '!purge':case '!slowmode':case '!lock':case '!unlock':case '!announce':case '!poll':answer='ℹ️ Cette commande est répertoriée mais son action texte n’est pas encore activée. Utilise les outils du site.';break;
- case '!cancel':answer='ℹ️ Rien à annuler pour le moment.';break;
- default:return false;
+ case '!inverse':answer=arg?Array.from(arg).reverse().join(''):'Utilisation : !inverse Ton texte';break;
+ case '!majuscule':answer=arg?arg.toLocaleUpperCase('fr-FR'):'Utilisation : !majuscule ton texte';break;
+ case '!minuscule':answer=arg?arg.toLocaleLowerCase('fr-FR'):'Utilisation : !minuscule TON TEXTE';break;
+ case '!longueur':answer='🔢 '+arg.length+' caractère(s).';break;
+ case '!monprofil':answer='👤 Connecté en tant que '+getUser()+'.';break;
+ case '!actualiser':loadChat();answer='🔄 Actualisation demandée.';break;
+ case '!aide-modo':answer='🛡️ Les actions de modération se font actuellement avec les outils du site. Les commandes texte ne modifient pas les sanctions.';break;
+ case '!signaler':answer='🚩 Indique le salon, le pseudo concerné et ce qui s’est passé à un modérateur.';break;
+ case '!suggestion':answer='💡 Formule ta suggestion avec le problème actuel et l’amélioration proposée.';break;
+ case '!bug':answer='🐞 Décris les étapes pour reproduire le bug et le résultat attendu.';break;
+ case '!confidentialite':answer='🔒 Les réponses du bot et les réglages de son profil sont locaux à ce navigateur. Les autres membres ne les voient pas.';break;
+ case '!version':answer='ℹ️ GeoInt Bot · version 3';break;
+ default:appendGeoBotMessage('Commande inconnue. Tape !aide pour voir les commandes disponibles.');return true;
  }
  appendGeoBotMessage(answer);return true;
 }
-async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;if(text.startsWith('!')){const handled=runGeoCommand(text);if(handled){$('#chatInput').value='';return}appendGeoBotMessage('Commande inconnue. Tape !help pour voir la liste.');$('#chatInput').value='';return}try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
+async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;if(text.startsWith('!')){runGeoCommand(text);$('#chatInput').value='';return}try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
 async function moderate(key,action,value,minutes){try{await api('/api/moderation/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({action,value,minutes})});toast(action==='timeout'?'Silence ajouté ('+(minutes||10)+' min)':action==='untimeout'?'Silence annulé':value?'Mute vocal activé':'Mute vocal désactivé');loadChat()}catch(e){toast(e.message)}}
 $('#chatSend').onclick=sendChat;$('#chatInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}};
 function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if(document.visibilityState==='visible'&&$('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
