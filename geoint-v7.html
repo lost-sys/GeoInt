@@ -222,6 +222,13 @@ dialog{position:relative}
 }
 
 
+/* Transparence réglable des panneaux principaux (chat inclus) */
+:root{--panel-opacity:1}
+#t-chat>.card,#t-chat .chatBox,#t-chat .chatRooms,#t-chat .voicePanel,#t-chat .chatComposer{
+ background:color-mix(in srgb,var(--panel) calc(var(--panel-opacity)*100%),transparent)!important;
+}
+#t-chat .chatMsg,#t-chat .chatMessage{background:color-mix(in srgb,var(--panel) calc(var(--panel-opacity)*55%),transparent)}
+
 /* ---------- Apparence personnalisable GeoInt ---------- */
 #appearanceBtn{white-space:nowrap}
 #appearanceDlg{max-width:760px;width:min(760px,94vw);max-height:88vh;overflow:auto;padding:22px}
@@ -431,6 +438,15 @@ dialog{position:relative}
   <h2 style="margin:0 40px 5px 0;font-size:20px">Personnaliser GeoInt</h2>
   <p class="appearanceIntro">Choisis une couleur de fond. Ton choix sera gardé sur cet appareil.</p>
   <div class="appearanceSection"><h3>Fonds unis · gratuits</h3><div id="freeThemeGrid" class="themeGrid"></div></div>
+  <div class="appearanceSection">
+    <h3>Transparence des panneaux</h3>
+    <label class="fg" style="grid-template-columns:1fr auto;gap:12px">
+      <span class="k">Fond du chat et des panneaux</span>
+      <strong id="panelOpacityValue">100 %</strong>
+    </label>
+    <input id="panelOpacityRange" type="range" min="20" max="100" step="5" value="100" style="width:100%;accent-color:var(--acc)">
+    <p class="appearanceNote">Réduit l’opacité des panneaux pour laisser apparaître le fond derrière le chat. Le réglage est conservé sur cet appareil.</p>
+  </div>
   <div class="appearanceSection"><h3>Fonds designés · Premium</h3><div id="premiumThemeGrid" class="themeGrid"></div></div>
 <div class="appearanceSection"><h3>Importer ton propre fond · Premium</h3><div class="bar2"><input id="customBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCustomBackground" type="button">Retirer mon fond</button></div><p class="appearanceNote">Importe une image personnelle (PNG, JPG, WebP ou GIF). L’image est redimensionnée pour limiter le stockage et reste sur cet appareil.</p></div>
   <div class="premiumBanner"><div><b>✦ GeoInt Premium</b><p>Débloque les fonds illustrés et les futurs thèmes exclusifs.</p></div><button id="premiumOpenBtn" class="pri" type="button">Voir l’abonnement</button></div>
@@ -512,6 +528,17 @@ $('#customBackgroundFile').onchange=async e=>{
  }catch(err){toast(err.message||'Impossible de charger cette image')}
 };
 $('#clearCustomBackground').onclick=()=>{localStorage.removeItem('geoint_custom_background');$('#customBackgroundFile').value='';const s=JSON.parse(localStorage.getItem('geoint_appearance')||'null');const t=s?.premium?GEOINT_PREMIUM_THEMES.find(x=>x.id===s.id):GEOINT_THEMES.find(x=>x.id===s?.id);applyGeointTheme(t||GEOINT_THEMES[0],!!(s?.premium&&t));toast('Fond personnalisé retiré')};
+
+function setPanelOpacity(value){
+ const n=Math.max(20,Math.min(100,Number(value)||100));
+ document.documentElement.style.setProperty('--panel-opacity',String(n/100));
+ $('#panelOpacityValue').textContent=n+' %';
+ try{localStorage.setItem('geoint_panel_opacity',String(n))}catch{}
+}
+const panelOpacitySaved=Number(localStorage.getItem('geoint_panel_opacity')||100);
+$('#panelOpacityRange').value=panelOpacitySaved;
+setPanelOpacity(panelOpacitySaved);
+$('#panelOpacityRange').addEventListener('input',e=>setPanelOpacity(e.target.value));
 
 $('#appearanceBtn').onclick=()=>{renderGeointThemes();$('#appearanceDlg').showModal()};
 $('#appearanceClose').onclick=()=>$('#appearanceDlg').close();
