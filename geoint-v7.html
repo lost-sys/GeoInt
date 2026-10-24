@@ -388,7 +388,9 @@ dialog{position:relative}
 #t-chat .richToolbar button,#t-chat .richToolbar .btn{
   border-radius:7px;border:1px solid var(--line);background:#ffffff05
 }
-#t-chat .timeoutRoleBadge{display:inline-flex;align-items:center;margin-left:5px;padding:2px 6px;border:1px solid #ff687766;border-radius:6px;background:#ff536b18;color:#ff9eae;font-size:9px;font-weight:900;letter-spacing:.04em;white-space:nowrap}\n#t-chat .chatTimeoutTimer{margin-top:6px;padding:7px 10px;border:1px solid #ff687744;border-radius:9px;background:#ff536b12;color:#ffb1bd;font-size:12px;font-weight:700;text-align:center}\n#t-chat .chatComposer{
+#t-chat .timeoutRoleBadge{display:inline-flex;align-items:center;margin-left:5px;padding:2px 6px;border:1px solid #ff687766;border-radius:6px;background:#ff536b18;color:#ff9eae;font-size:9px;font-weight:900;letter-spacing:.04em;white-space:nowrap}
+#t-chat .chatTimeoutTimer{margin-top:6px;padding:7px 10px;border:1px solid #ff687744;border-radius:9px;background:#ff536b12;color:#ffb1bd;font-size:12px;font-weight:700;text-align:center}
+#t-chat .chatComposer{
   padding:12px!important;gap:9px;align-items:flex-end;
   border-top:1px solid color-mix(in srgb,var(--chat-violet) 17%,var(--line));
   background:linear-gradient(90deg,#9b7cff0a,#54d9ff06);
@@ -1368,7 +1370,10 @@ async function loadChat(){
 
   }catch(e){toast(e.message)}
 }
-function formatTimeout(until){const sec=Math.max(0,Math.ceil((Number(until)-Date.now())/1000));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}\nfunction updateChatTimeoutTimer(){const el=$('#chatTimeoutTimer');if(!el)return;const until=window.__geoTimeoutUntil||0;const left=until-Date.now();if(!sessionToken||left<=0){el.style.display='none';if(left<=0)window.__geoTimeoutUntil=0;const input=$('#chatInput'),send=$('#chatSend');if(input)input.disabled=false;if(send)send.disabled=false;return}el.style.display='block';el.textContent='🔇 Silence actif — tu pourras réécrire dans '+formatTimeout(until);const input=$('#chatInput'),send=$('#chatSend');if(input)input.disabled=true;if(send)send.disabled=true}\nsetInterval(updateChatTimeoutTimer,1000);\nasync function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
+function formatTimeout(until){const sec=Math.max(0,Math.ceil((Number(until)-Date.now())/1000));return Math.floor(sec/60)+':'+String(sec%60).padStart(2,'0')}
+function updateChatTimeoutTimer(){const el=$('#chatTimeoutTimer');if(!el)return;const until=window.__geoTimeoutUntil||0;const left=until-Date.now();if(!sessionToken||left<=0){el.style.display='none';if(left<=0)window.__geoTimeoutUntil=0;const input=$('#chatInput'),send=$('#chatSend');if(input)input.disabled=false;if(send)send.disabled=false;return}el.style.display='block';el.textContent='🔇 Silence actif — tu pourras réécrire dans '+formatTimeout(until);const input=$('#chatInput'),send=$('#chatSend');if(input)input.disabled=true;if(send)send.disabled=true}
+setInterval(updateChatTimeoutTimer,1000);
+async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
 async function moderate(key,action,value,minutes){try{await api('/api/moderation/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({action,value,minutes})});toast(action==='timeout'?'Silence ajouté ('+(minutes||10)+' min)':action==='untimeout'?'Silence annulé':value?'Mute vocal activé':'Mute vocal désactivé');loadChat()}catch(e){toast(e.message)}}
 $('#chatSend').onclick=sendChat;$('#chatInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}};
 function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if(document.visibilityState==='visible'&&$('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
