@@ -78,6 +78,8 @@ function render(){
  if(!ensureControls())return;
  const c=courses.find(x=>x.id===active)||courses[0], p=getProgress(c.id), content=$('#courseContent'), done=progressCount(c), isDone=completed(c);
  renderList();
+ // Synchronise les cours terminés localement, même si leur validation date d'avant la connexion.
+ courses.filter(completed).forEach(course=>syncCompletion(course,true));
  const header='<h2>'+esc(c.title)+'</h2><p style="color:var(--mut)">'+esc(c.desc)+'</p><div class="academyStats"><div class="academyStat"><strong>'+c.lessons.length+'</strong><span class="academyMuted">Leçons</span></div><div class="academyStat"><strong>'+c.minutes+' min</strong><span class="academyMuted">Durée estimée</span></div><div class="academyStat"><strong>'+Math.round(done/c.lessons.length*100)+'%</strong><span class="academyMuted">Progression</span></div></div><div class="courseProgress"><i style="width:'+Math.round(done/c.lessons.length*100)+'%"></i></div><div class="academyMuted">Niveau : '+esc(c.level)+' · '+esc(c.category)+(isDone?' · ✓ Cours terminé':'')+'</div><div class="academyTabs"><button data-view="lesson" class="'+(view==='lesson'?'active':'')+'">📚 Leçons</button><button data-view="quiz" class="'+(view==='quiz'?'active':'')+'">🧠 Quiz ('+c.quiz.length+')</button><button data-view="exercise" class="'+(view==='exercise'?'active':'')+'">🛠 Exercice</button></div>';
  let body='';
  if(view==='lesson'){
@@ -101,9 +103,9 @@ function render(){
 }
 let synced = {};
 function syncCompletion(c, finished){
- if(!finished||synced[c.id])return;
+ if(!finished||synced[c.id]||typeof window.api!=='function')return;
  synced[c.id]=true;
- if(typeof window.api==='function')window.api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:true})}).catch(()=>{synced[c.id]=false;});
+ window.api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:true})}).catch(()=>{synced[c.id]=false;});
 }
 window.renderCourses = render; // Compatibilité avec le gestionnaire d’onglets GeoInt existant.
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render);else render();
