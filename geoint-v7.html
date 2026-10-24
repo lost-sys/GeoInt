@@ -1393,7 +1393,7 @@ function renderGeoCommandList(){
  root.querySelectorAll('[data-geocmd]').forEach(b=>b.onclick=()=>{const input=document.getElementById('chatInput');if(input){input.value=b.dataset.geocmd+' ';input.focus()}document.getElementById('geoCommandHelp')?.remove()});
 }
 function runGeoCommand(raw){
- const [first,...rest]=raw.trim().split(/\\s+/), cmd=first.toLowerCase(), arg=rest.join(' '), toastMsg=(s)=>toast(s);
+ const [first,...rest]=raw.trim().split(/\s+/), cmd=first.toLowerCase(), arg=rest.join(' '), toastMsg=(s)=>toast(s);
  const choose=(a)=>a[Math.floor(Math.random()*a.length)];
  switch(cmd){
   case '!help':case '!commands':case '!aide':showGeoHelp();return true;
