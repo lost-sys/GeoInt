@@ -117,7 +117,7 @@ const roleView = r => ({id:r.id,name:r.name,color:r.color,position:r.position,pe
 const channelView = c => ({id:c.id,name:c.name,type:c.type,position:c.position,readonly:!!c.readonly,permission:c.permission||null});
 const authUser = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''), s = DB.sessions[sha(t)];
   if (!t || !s || s.exp < Date.now() || !DB.users[s.u]) return null; const u=DB.users[s.u]; return { key:s.u, name:u.name, admin:s.u==='lost', roles:userRoles({...u,key:s.u}), permissions:u?.roles?.flatMap(id=>roleById(id)?.permissions||[])||[] }; };
-const fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
+const chatAntiSpam = new Map();\nconst fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
 const bad = k => { const f = fails[k] = fails[k] && Date.now() - fails[k].t < 60000 ? fails[k] : { n: 0 }; f.n++; f.t = Date.now(); };
 const lastMsg = {};
 const STATIC = { '/course-academy.js': ['course-academy.js', 'text/javascript; charset=utf-8'], '/': ['geoint-v7.html', 'text/html; charset=utf-8'], '/index.html': ['geoint-v7.html', 'text/html; charset=utf-8'], '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
@@ -311,6 +311,13 @@ const httpServer = http.createServer(async (req, res) => {
         if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
         const text=filterProfanity(String(B.text||'').trim()).slice(0,2000);
         if(!text) throw E(400,'Message vide');
+        const now=Date.now(), antiKey=me.key+'|'+roomId, recent=chatAntiSpam.get(antiKey)||{times:[],lastAt:0,lastText:''};
+        recent.times=recent.times.filter(ts=>now-ts<10000);
+        if(now-recent.lastAt<1500) throw E(429,'Anti-spam : attends une seconde avant de renvoyer un message.');
+        if(recent.lastText===text.toLowerCase()&&now-recent.lastAt<15000) throw E(429,'Anti-spam : tu viens déjà d’envoyer ce message.');
+        if(recent.times.length>=5) throw E(429,'Anti-spam : maximum 5 messages en 10 secondes. Réessaie dans quelques instants.');
+        recent.times.push(now); recent.lastAt=now; recent.lastText=text.toLowerCase(); chatAntiSpam.set(antiKey,recent);
+        if(chatAntiSpam.size>5000){for(const [k,v] of chatAntiSpam)if(!v.times.some(ts=>now-ts<10000))chatAntiSpam.delete(k);}
         const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
         DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
         save().catch(e=>console.error('Sauvegarde message chat:',e)); return J(res,200,msg);
