@@ -291,9 +291,9 @@ const httpServer = http.createServer(async (req, res) => {
         if(!text&&!attachment)throw E(400,'Écris un message ou joins un fichier');
         if(text.length>2000)throw E(400,'Maximum 2 000 caractères par message privé');
         if(attachment){
-          if(typeof attachment.data!=='string'||!/^data:(application\\/pdf|image\\/(png|jpeg|gif|webp)|video\\/(mp4|webm|quicktime)|text\\/plain|application\\/zip);base64,/.test(attachment.data))throw E(400,'Type de fichier non pris en charge.');
+          if(typeof attachment.data!=='string'||!/^data:(application\/pdf|image\/(png|jpeg|gif|webp)|video\/(mp4|webm|quicktime)|text\/plain|application\/zip);base64,/.test(attachment.data))throw E(400,'Type de fichier non pris en charge.');
           if(attachment.data.length>13e6)throw E(413,'Fichier trop lourd : limite actuelle 10 Mo. Utilise un service de partage pour les fichiers plus grands.');
-          attachment.name=String(attachment.name||'fichier').replace(/[\\\\/\\r\\n]/g,'_').slice(0,180);
+          attachment.name=String(attachment.name||'fichier').replace(/[\/\\\r\n]/g,'_').slice(0,180);
           attachment.type=String(attachment.type||'application/octet-stream').slice(0,100);
         }
         if(Date.now()-(lastMsg['dm:'+me.key]||0)<500)throw E(429,'Attends un instant avant d’envoyer un autre message');
