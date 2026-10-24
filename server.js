@@ -303,7 +303,7 @@ const httpServer = http.createServer(async (req, res) => {
         await save();return J(res,200,{ok:true,message:msg});
       }
     }
-    let dmEdit=p.match(/^\\/api\\/dm-message\\/([^/]+)\\/([^/]+)$/);
+    let dmEdit=p.match(/^\/api\/dm-message\/([^/]+)\/([^/]+)$/);
     if(dmEdit){
       const peer=decodeURIComponent(dmEdit[1]).toLowerCase(),mid=decodeURIComponent(dmEdit[2]),members=[me.key,peer].sort(),c=DB.dms?.[members.join('::')];
       if(!c||!c.members?.includes(me.key))throw E(404,'Conversation introuvable');
