@@ -462,6 +462,24 @@ dialog{position:relative}
   #t-chat #chatWho{max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 
+
+/* Menu contextuel des messages : actions rangées, affichées au clic droit */
+#chatMessageContext{
+  position:fixed;z-index:10050;display:none;min-width:190px;max-width:min(260px,calc(100vw - 20px));
+  padding:6px;border:1px solid #9b7cff66;border-radius:12px;
+  background:linear-gradient(155deg,#17152a,#0d1322);color:#f4f3ff;
+  box-shadow:0 18px 48px #0009,0 0 24px #7655ee18;backdrop-filter:blur(18px)
+}
+#chatMessageContext .ctxTitle{padding:7px 9px 8px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#a9b9d7}
+#chatMessageContext button{display:flex;align-items:center;gap:9px;width:100%;min-height:35px;padding:8px 10px;
+  border:0;border-radius:7px;background:transparent;color:inherit;text-align:left;font-size:12px;cursor:pointer}
+#chatMessageContext button:hover{background:#9b7cff24}
+#chatMessageContext button[data-action="delete"]:hover{background:#ff536b20;color:#ff9aa8}
+#chatMessageContext .ctxDivider{height:1px;margin:4px 3px;background:#ffffff15}
+#t-chat .chatMsg{position:relative}
+#t-chat .chatMsg .msgActions{display:flex;flex-wrap:wrap;gap:4px;margin-top:7px}
+#t-chat .chatMsg .msgActions>.chatMod{display:none}
+#t-chat .chatMsg .msgActions>.msgReaction{display:inline-flex}
 </style>
 </head>
 <body>
@@ -1317,6 +1335,37 @@ async function loadChat(){
     $('#chatMessages').querySelectorAll('[data-pinmsg]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+encodeURIComponent(currentRoom)+'/'+b.dataset.pinmsg,{method:'PATCH',body:JSON.stringify({pinned:b.textContent.includes('Épingler')})});loadChat()}catch(e){toast(e.message)}});
     $('#chatMessages').querySelectorAll('[data-react]').forEach(b=>b.onclick=async()=>{try{await api('/api/chat/'+encodeURIComponent(currentRoom)+'/'+b.dataset.react+'/reaction',{method:'POST',body:JSON.stringify({emoji:b.dataset.emoji})});loadChat()}catch(e){toast(e.message)}});
     $('#chatMessages').querySelectorAll('[data-emoji-pick]').forEach(b=>b.onclick=()=>{const es=['👍','😂','❤️','🔥','👀','😎','💀','🤡','👏','🎉'];const p=document.createElement('div');p.className='emojiPicker';p.style.left=Math.min(innerWidth-230,b.getBoundingClientRect().left)+'px';p.style.top=(b.getBoundingClientRect().bottom+4)+'px';p.innerHTML=es.map(e=>`<button data-e="${e}">${e}</button>`).join('');document.body.appendChild(p);p.style.display='flex';p.querySelectorAll('[data-e]').forEach(x=>x.onclick=async()=>{p.remove();await api('/api/chat/'+encodeURIComponent(currentRoom)+'/'+b.dataset.emojiPick+'/reaction',{method:'POST',body:JSON.stringify({emoji:x.dataset.e})});loadChat()});setTimeout(()=>{document.addEventListener('click',()=>p.remove(),{once:true})},0)});
+    // Menu contextuel : réutilise les boutons d'origine pour conserver leurs permissions et actions.
+    const chatRoot=$('#chatMessages');
+    let contextMenu=document.querySelector('#chatMessageContext');
+    if(!contextMenu){contextMenu=document.createElement('div');contextMenu.id='chatMessageContext';contextMenu.setAttribute('role','menu');contextMenu.innerHTML='<div class="ctxTitle">Actions du message</div><div class="ctxItems"></div>';document.body.appendChild(contextMenu)}
+    const closeChatContext=()=>{contextMenu.style.display='none';contextMenu.querySelector('.ctxItems').replaceChildren()};
+    chatRoot.oncontextmenu=e=>{
+      const msg=e.target.closest('.chatMsg');if(!msg)return;
+      const originals=[...msg.querySelectorAll('.msgActions>.chatMod')];
+      if(!originals.length)return;
+      e.preventDefault();e.stopPropagation();
+      const items=contextMenu.querySelector('.ctxItems');items.replaceChildren();
+      const labels=b=>b.hasAttribute('data-emoji-pick')?'😀 Ajouter une réaction':b.hasAttribute('data-pinmsg')?(b.textContent.includes('Désépingler')?'📌 Désépingler':'📌 Épingler'):b.hasAttribute('data-editmsg')?'✏️ Modifier':b.hasAttribute('data-cdel')?'🗑️ Supprimer':b.hasAttribute('data-timeout')?'⏱️ Silence 10 min':b.hasAttribute('data-vmute')?'🎙️ Mute vocal':b.textContent.trim();
+      originals.forEach((original,index)=>{
+        if(index===1 && originals.length>2){const hr=document.createElement('div');hr.className='ctxDivider';items.appendChild(hr)}
+        const b=document.createElement('button');b.type='button';b.setAttribute('role','menuitem');b.textContent=labels(original);
+        if(original.hasAttribute('data-cdel'))b.dataset.action='delete';
+        b.onclick=()=>{closeChatContext();original.click()};
+        items.appendChild(b);
+      });
+      contextMenu.style.display='block';
+      const w=contextMenu.offsetWidth,h=contextMenu.offsetHeight;
+      contextMenu.style.left=Math.max(8,Math.min(e.clientX,innerWidth-w-8))+'px';
+      contextMenu.style.top=Math.max(8,Math.min(e.clientY,innerHeight-h-8))+'px';
+    };
+    if(!window.__geoChatContextBound){
+      window.__geoChatContextBound=true;
+      document.addEventListener('click',e=>{if(!e.target.closest('#chatMessageContext'))closeChatContext()});
+      document.addEventListener('keydown',e=>{if(e.key==='Escape')closeChatContext()});
+      window.addEventListener('scroll',closeChatContext,true);
+    }
+
   }catch(e){toast(e.message)}
 }
 async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
