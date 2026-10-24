@@ -117,7 +117,8 @@ const roleView = r => ({id:r.id,name:r.name,color:r.color,position:r.position,pe
 const channelView = c => ({id:c.id,name:c.name,type:c.type,position:c.position,readonly:!!c.readonly,permission:c.permission||null});
 const authUser = req => { const t = (req.headers.authorization || '').replace('Bearer ', ''), s = DB.sessions[sha(t)];
   if (!t || !s || s.exp < Date.now() || !DB.users[s.u]) return null; const u=DB.users[s.u]; return { key:s.u, name:u.name, admin:s.u==='lost', roles:userRoles({...u,key:s.u}), permissions:u?.roles?.flatMap(id=>roleById(id)?.permissions||[])||[] }; };
-const chatAntiSpam = new Map();\nconst fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
+const chatAntiSpam = new Map();
+const fails = {}, tooMany = k => fails[k] && fails[k].n >= 5 && Date.now() - fails[k].t < 60000;
 const bad = k => { const f = fails[k] = fails[k] && Date.now() - fails[k].t < 60000 ? fails[k] : { n: 0 }; f.n++; f.t = Date.now(); };
 const lastMsg = {};
 const STATIC = { '/course-academy.js': ['course-academy.js', 'text/javascript; charset=utf-8'], '/': ['geoint-v7.html', 'text/html; charset=utf-8'], '/index.html': ['geoint-v7.html', 'text/html; charset=utf-8'], '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
