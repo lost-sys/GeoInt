@@ -221,6 +221,29 @@ dialog{position:relative}
   #t-manage .manageHeader{top:-12px}
 }
 
+
+/* ---------- Apparence personnalisable GeoInt ---------- */
+#appearanceBtn{white-space:nowrap}
+#appearanceDlg{max-width:760px;width:min(760px,94vw);max-height:88vh;overflow:auto;padding:22px}
+.appearanceIntro{color:var(--mut);font-size:12px;margin:-2px 0 16px}
+.themeGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px}
+.themeOption{display:flex;flex-direction:column;gap:8px;text-align:left;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;min-width:0}
+.themeOption.selected{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.themeSwatch{height:62px;border-radius:7px;border:1px solid #ffffff22;display:flex;align-items:flex-end;justify-content:flex-end;padding:7px;gap:4px}
+.themeSwatch i{display:block;width:13px;height:13px;border-radius:50%;border:1px solid #ffffff55}
+.themeName{font-weight:700;font-size:12px}.themeMeta{font-size:10px;color:var(--mut)}
+.premiumTheme{position:relative;overflow:hidden}
+.premiumTheme .themeSwatch:after{content:'✦ PREMIUM';font-size:9px;letter-spacing:.08em;background:#000a;color:#fff;border-radius:5px;padding:4px 6px}
+.appearanceSection{margin-top:18px}.appearanceSection h3{margin-bottom:10px}
+.premiumBanner{margin-top:16px;padding:14px;border:1px solid #9b7bff66;border-radius:10px;background:linear-gradient(120deg,#7b4dff18,#ffb02010);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.premiumBanner p{margin:4px 0 0;color:var(--mut);font-size:12px}
+#premiumDlg{max-width:480px;padding:24px}
+.premiumPrice{font-size:28px;font-weight:700;margin:10px 0}.premiumPrice small{font-size:12px;color:var(--mut);font-weight:400}
+.premiumList{display:grid;gap:8px;margin:14px 0;color:var(--tx);font-size:13px}
+.premiumList span:before{content:'✓';color:var(--ok);margin-right:8px;font-weight:700}
+.appearanceNote{font-size:11px;color:var(--mut);margin-top:12px}
+@media(max-width:600px){#appearanceDlg{padding:14px}.themeGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.premiumBanner{align-items:flex-start}}
+
 </style>
 </head>
 <body>
@@ -229,6 +252,7 @@ dialog{position:relative}
   <nav role="tablist">
     <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button data-t="courses">⑦ Cours</button><button data-t="about">⑧ Équipe</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
   </nav>
+  <button id="appearanceBtn" type="button" title="Personnaliser le fond">🎨 Apparence</button>
   <button id="installBtn">⬇ Installer</button><button id="userBtn">👤 Connexion</button><button id="keyBtn">🔑 IA & clés</button>
 </header>
 <main>
@@ -397,9 +421,83 @@ dialog{position:relative}
 <dialog id="pw"><h3 id="pwH">Mot de passe</h3><div class="fg"><span class="k" id="pwTk">Titre</span><input id="pwTitle" placeholder="Nom de l'enregistrement"><span class="k">Mot de passe</span><input id="pwIn" type="password" autocomplete="off"><span class="k" id="pwK2">Confirmer</span><input id="pwIn2" type="password" autocomplete="off"></div><p id="pwNote" style="font-size:12px;color:var(--mut)"></p><div class="bar2"><button type="button" id="pwOk" class="pri">Valider</button><button type="button" id="pwNo">Annuler</button></div></dialog>
 <dialog id="logsDlg" style="max-width:640px"><button class="dialogX" id="logsClose" type="button" aria-label="Fermer">×</button><h3>Logs du serveur</h3><div id="serverLogs" class="mono" style="font-size:12px;max-height:60vh;overflow:auto"></div><div class="bar2" style="margin-top:12px"><button id="logsRefresh" type="button">Actualiser</button></div></dialog>
 <div id="cm"></div>
+
 <div id="toast"></div>
+<dialog id="appearanceDlg">
+  <button class="dialogX" id="appearanceClose" aria-label="Fermer">×</button>
+  <h2 style="margin:0 40px 5px 0;font-size:20px">Personnaliser GeoInt</h2>
+  <p class="appearanceIntro">Choisis une couleur de fond. Ton choix sera gardé sur cet appareil.</p>
+  <div class="appearanceSection"><h3>Fonds unis · gratuits</h3><div id="freeThemeGrid" class="themeGrid"></div></div>
+  <div class="appearanceSection"><h3>Fonds designés · Premium</h3><div id="premiumThemeGrid" class="themeGrid"></div></div>
+  <div class="premiumBanner"><div><b>✦ GeoInt Premium</b><p>Débloque les fonds illustrés et les futurs thèmes exclusifs.</p></div><button id="premiumOpenBtn" class="pri" type="button">Voir l’abonnement</button></div>
+  <p class="appearanceNote">Les fonds illustrés sont affichés en aperçu. Le paiement mensuel doit être connecté avant de pouvoir activer les options Premium.</p>
+</dialog>
+<dialog id="premiumDlg">
+  <button class="dialogX" id="premiumClose" aria-label="Fermer">×</button>
+  <div style="font-size:11px;letter-spacing:.14em;color:var(--acc);font-weight:700">GEOINT · PREMIUM</div>
+  <h2 style="margin:8px 35px 0 0">Personnalise ton univers</h2>
+  <p style="color:var(--mut);font-size:13px">Accède aux fonds illustrés et aux thèmes exclusifs.</p>
+  <div class="premiumPrice">4,99 € <small>/ mois · prix provisoire</small></div>
+  <div class="premiumList"><span>Fonds dessinés et animés</span><span>Thèmes exclusifs régulièrement ajoutés</span><span>Conserve ton thème tant que l’abonnement est actif</span></div>
+  <button id="premiumSubscribeBtn" class="pri" type="button" style="width:100%">Paiement mensuel bientôt disponible</button>
+  <p class="appearanceNote">Aucun paiement ne sera déclenché ici : l’abonnement réel nécessite la configuration du prestataire de paiement et du serveur.</p>
+</dialog>
 <script>
+
 const $=s=>document.querySelector(s);
+
+/* ---------- Thèmes de fond : gratuits et Premium ---------- */
+const GEOINT_THEMES=[
+ {id:'default',name:'GeoInt classique',bg:'#0b0d10',panel:'#12161b',line:'#222a33',tx:'#e6e9ec',mut:'#8b96a3',acc:'#ffb020'},
+ {id:'midnight-blue',name:'Bleu nuit',bg:'#081321',panel:'#101f30',line:'#20364c',tx:'#e6edf7',mut:'#91a6bd',acc:'#55b7ff'},
+ {id:'forest',name:'Forêt',bg:'#0b1712',panel:'#12231a',line:'#254333',tx:'#e3f2e8',mut:'#91b29c',acc:'#50d890'},
+ {id:'violet',name:'Violet',bg:'#140d20',panel:'#20152e',line:'#3a284d',tx:'#f0e7fb',mut:'#b4a1c7',acc:'#c18aff'},
+ {id:'crimson',name:'Rouge sombre',bg:'#1a0c10',panel:'#28151b',line:'#49252f',tx:'#f8e8ec',mut:'#c49aa4',acc:'#ff647c'},
+ {id:'ocean',name:'Océan',bg:'#071a1c',panel:'#102629',line:'#214346',tx:'#e2f4f4',mut:'#91b9ba',acc:'#35d4c4'},
+ {id:'sand',name:'Sable',bg:'#211b12',panel:'#30271a',line:'#51432d',tx:'#f7efdf',mut:'#c4b18d',acc:'#f3c56b'},
+ {id:'light',name:'Clair',bg:'#e9edf2',panel:'#ffffff',line:'#cbd3dc',tx:'#18212b',mut:'#596879',acc:'#e28b13'}
+];
+const GEOINT_PREMIUM_THEMES=[
+ {id:'neon-grid',name:'Neon Grid',bg:'#080b1a',panel:'#11152a',line:'#333b6b',tx:'#e9edff',mut:'#929dd0',acc:'#7d8cff',pattern:'grid'},
+ {id:'cyberpunk',name:'Cyberpunk',bg:'#16091d',panel:'#24102b',line:'#51245b',tx:'#fff0ff',mut:'#c69acb',acc:'#ff4fd8',pattern:'cyber'},
+ {id:'topographic',name:'Topographie',bg:'#0b1717',panel:'#122323',line:'#284444',tx:'#e0f8ef',mut:'#91b9ad',acc:'#5ce0b1',pattern:'topo'},
+ {id:'nebula',name:'Nébuleuse',bg:'#100d27',panel:'#1b1637',line:'#373064',tx:'#f0ecff',mut:'#afa4d8',acc:'#b7a0ff',pattern:'nebula'}
+];
+const GEOINT_PATTERN_CSS={
+ grid:'radial-gradient(circle at 1px 1px, #7d8cff35 1px, transparent 0) 0 0/22px 22px',
+ cyber:'linear-gradient(135deg,transparent 48%,#ff4fd81a 49%,#ff4fd81a 51%,transparent 52%) 0 0/34px 34px,linear-gradient(45deg,transparent 48%,#45f3ff14 49%,#45f3ff14 51%,transparent 52%) 0 0/34px 34px',
+ topo:'repeating-radial-gradient(ellipse at 25% 35%,transparent 0 13px,#5ce0b11c 14px 15px,transparent 16px 27px)',
+ nebula:'radial-gradient(ellipse at 20% 15%,#9b72ff38,transparent 45%),radial-gradient(ellipse at 85% 75%,#ff65c728,transparent 40%)'
+};
+function applyGeointTheme(theme,pattern=false){
+ const root=document.documentElement;
+ for(const [key,val] of Object.entries({bg:theme.bg,panel:theme.panel,line:theme.line,tx:theme.tx,mut:theme.mut,acc:theme.acc}))root.style.setProperty('--'+key,val);
+ document.body.style.backgroundColor=theme.bg;
+ document.body.style.backgroundImage=pattern?(GEOINT_PATTERN_CSS[theme.pattern]||'none'):'none';
+ document.body.style.backgroundAttachment='fixed';
+ document.body.dataset.theme=theme.id;
+ try{localStorage.setItem('geoint_appearance',JSON.stringify({id:theme.id,premium:pattern}))}catch{}
+ const active=$('#appearanceDlg');
+ if(active?.open)renderGeointThemes();
+}
+function renderGeointThemes(){
+ const saved=(()=>{try{return JSON.parse(localStorage.getItem('geoint_appearance')||'null')}catch{return null}})();
+ $('#freeThemeGrid').innerHTML=GEOINT_THEMES.map(t=>`<button type="button" class="themeOption ${saved?.id===t.id&&!saved?.premium?'selected':''}" data-free-theme="${t.id}" aria-pressed="${saved?.id===t.id&&!saved?.premium}"><span class="themeSwatch" style="background:${t.bg}"><i style="background:${t.panel}"></i><i style="background:${t.acc}"></i></span><span class="themeName">${t.name}</span><span class="themeMeta">Gratuit · couleur unie</span></button>`).join('');
+ $('#premiumThemeGrid').innerHTML=GEOINT_PREMIUM_THEMES.map(t=>`<button type="button" class="themeOption premiumTheme" data-premium-theme="${t.id}"><span class="themeSwatch" style="background:${t.bg};background-image:${GEOINT_PATTERN_CSS[t.pattern]};background-size:cover"><i style="background:${t.panel}"></i><i style="background:${t.acc}"></i></span><span class="themeName">${t.name}</span><span class="themeMeta">🔒 Abonnement mensuel</span></button>`).join('');
+ $('#freeThemeGrid').querySelectorAll('[data-free-theme]').forEach(b=>b.onclick=()=>{const t=GEOINT_THEMES.find(x=>x.id===b.dataset.freeTheme);if(t){applyGeointTheme(t,false);renderGeointThemes()}});
+ $('#premiumThemeGrid').querySelectorAll('[data-premium-theme]').forEach(b=>b.onclick=()=>{$('#appearanceDlg').close();$('#premiumDlg').showModal()});
+}
+function restoreGeointTheme(){
+ let saved=null;try{saved=JSON.parse(localStorage.getItem('geoint_appearance')||'null')}catch{}
+ const theme=saved?.premium?GEOINT_PREMIUM_THEMES.find(t=>t.id===saved.id):GEOINT_THEMES.find(t=>t.id===saved?.id);
+ applyGeointTheme(theme||GEOINT_THEMES[0],!!(saved?.premium&&theme));
+}
+$('#appearanceBtn').onclick=()=>{renderGeointThemes();$('#appearanceDlg').showModal()};
+$('#appearanceClose').onclick=()=>$('#appearanceDlg').close();
+$('#premiumOpenBtn').onclick=()=>{$('#appearanceDlg').close();$('#premiumDlg').showModal()};
+$('#premiumClose').onclick=()=>$('#premiumDlg').close();
+$('#premiumSubscribeBtn').onclick=()=>{if(typeof toast==='function')toast('Abonnement non activé : le paiement doit être configuré côté serveur.');else alert('Abonnement non activé : le paiement doit être configuré côté serveur.')};
+restoreGeointTheme();
 
 /* ---------- PWA ---------- */
 let deferredInstall=null;
