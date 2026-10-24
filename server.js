@@ -264,6 +264,38 @@ const httpServer = http.createServer(async (req, res) => {
       return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||'',nameGradient:u.nameGradient||'none',premium:!!u.premium});
     }
     let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',premium:!!u.premium,nameGradient:u.nameGradient||'none',roles:userRoles({...u,key}).map(roleView),created:u.created,stats:u.stats||{}}); }
+    /* ---- messagerie privée : conversations réservées aux deux participants ---- */
+    if (p === '/api/dm' && m === 'GET') {
+      const conversations=Object.entries(DB.dms||{}).filter(([id,c])=>Array.isArray(c.members)&&c.members.includes(me.key))
+        .map(([id,c])=>{const other=c.members.find(k=>k!==me.key),u=DB.users[other];if(!u)return null;const last=c.messages?.at(-1);return {key:other,name:u.name,avatar:u.avatar||'',lastText:last?.text||'',lastAt:last?.ts||c.created||0,unread:(c.messages||[]).filter(x=>x.to===me.key&&!x.readAt).length};})
+        .filter(Boolean).sort((a,b)=>b.lastAt-a.lastAt);
+      return J(res,200,conversations);
+    }
+    let dm=p.match(/^\/api\/dm\/([^/]+)$/);
+    if(dm){
+      const other=decodeURIComponent(dm[1]).toLowerCase(),target=DB.users[other];
+      if(!target)throw E(404,'Utilisateur introuvable');
+      if(other===me.key)throw E(400,'Tu ne peux pas t’envoyer un message à toi-même');
+      const members=[me.key,other].sort(),id=members.join('::');
+      DB.dms ??= {};
+      DB.dms[id] ??= {members,created:Date.now(),messages:[]};
+      const conv=DB.dms[id];if(!Array.isArray(conv.messages))conv.messages=[];
+      if(m==='GET'){
+        conv.messages.forEach(x=>{if(x.to===me.key&&!x.readAt)x.readAt=Date.now()});
+        await save();
+        return J(res,200,{key:other,name:target.name,avatar:target.avatar||'',messages:conv.messages.slice(-500)});
+      }
+      if(m==='POST'){
+        const text=String(B.text||'').trim();
+        if(!text)throw E(400,'Le message est vide');
+        if(text.length>2000)throw E(400,'Maximum 2 000 caractères par message privé');
+        if(Date.now()-(lastMsg['dm:'+me.key]||0)<500)throw E(429,'Attends un instant avant d’envoyer un autre message');
+        lastMsg['dm:'+me.key]=Date.now();
+        const msg={id:crypto.randomUUID(),from:me.key,to:other,u:me.name,text:filterProfanity(text),ts:Date.now(),readAt:0};
+        conv.messages.push(msg);if(conv.messages.length>500)conv.messages=conv.messages.slice(-500);
+        await save();return J(res,200,{ok:true,message:msg});
+      }
+    }
     if (p === '/api/me/activity' && m === 'POST') { const sec=Math.max(0,Math.min(300,Number(B.seconds)||0)); DB.users[me.key].stats.totalSeconds+=sec; await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
     if (p === '/api/me/stats/search' && m === 'POST') { DB.users[me.key].stats.searches++; DB.users[me.key].stats.peopleFound+=Math.max(0,Math.min(100,Number(B.people)||0)); await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
     if (p === '/api/me/stats/course' && m === 'POST') { const cid=String(B.course||'').slice(0,60), key='course_'+cid; if(B.completed&&!DB.users[me.key].stats[key]){DB.users[me.key].stats.coursesCompleted++;DB.users[me.key].stats[key]=true;await save()} return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
