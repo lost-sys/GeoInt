@@ -1322,7 +1322,7 @@ async function loadChat(){
 async function sendChat(){if(!sessionToken){openAuth('login');return}const text=$('#chatInput').value.trim();if(!text)return;try{await api('/api/chat/'+encodeURIComponent(currentRoom),{method:'POST',body:JSON.stringify({text})});$('#chatInput').value='';loadChat()}catch(e){toast(e.message)}}
 async function moderate(key,action,value){try{await api('/api/moderation/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({action,value})});toast(action==='timeout'?'Utilisateur réduit au silence 10 min':value?'Mute vocal activé':'Mute vocal désactivé');loadChat()}catch(e){toast(e.message)}}
 $('#chatSend').onclick=sendChat;$('#chatInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat()}};
-function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if($('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
+function startChatPoll(){clearInterval(chatTimer);chatTimer=setInterval(()=>{if(document.visibilityState==='visible'&&$('#t-chat').classList.contains('on'))loadChat()},3000)} startChatPoll();
 
 function openStreamMenu(ev,v){
   const cm=$('#cm'); if(!cm)return;
