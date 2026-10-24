@@ -555,6 +555,9 @@ if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.ser
 
 /* clic droit : menu du navigateur masqué partout (sauf champs de saisie, pour couper/coller) */
 addEventListener('contextmenu',e=>{if(!(e.target.closest&&e.target.closest('input,textarea')))e.preventDefault()},true);
+addEventListener('click',e=>{const cm=$('#cm');if(cm&&cm.style.display==='block'&&!e.target.closest('#cm'))cm.style.display='none'});
+addEventListener('keydown',e=>{if(e.key==='Escape')$('#cm').style.display='none'});
+
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.h);toast.h=setTimeout(()=>t.style.display='none',3000)};
 let lastAI='',lkM,lastV,viewHeading=null,vpM,vpLayer,exifInfo='',exifDate='',target=null,tgtMark,wps=[],routeGrp,routeSeq=0,lastCands=[],file=null,map,layers,pins,exifPt=null,net,nodes,edges,graphReady=false;
@@ -1314,6 +1317,34 @@ function initGraph(){
   net.on('click',p=>{if(p.nodes?.[0]){const id=p.nodes[0];if(linkMode){if(!net.__linkStart){net.__linkStart=id;net.selectNodes([id]);toast('Nœud de départ sélectionné · clique le second')}else{const ok=createEdge(net.__linkStart,id);net.__linkStart=null;linkMode=false;$('#gLink').classList.remove('pri');toast(ok?'Lien créé':'Lien impossible ou déjà présent')}}}});
   net.on('dragEnd',later);nodes.on('*',later);edges.on('*',later);net.on('stabilizationIterationsDone',()=>{net.setOptions({physics:false});later()});
   net.on('doubleClick',p=>{if(p.nodes?.[0])editNode(p.nodes[0]);else if(p.edges?.[0])editEdge(p.edges[0]);else addNode($('#gType').value,p.pointer.canvas)});
+  /* Menu contextuel du graphe : clic droit sur un nœud ou dans le vide */
+  const graphContextMenu=(p)=>{
+    const cm=$('#cm');if(!cm)return;
+    const nodeId=p.nodes?.[0],edgeId=p.edges?.[0],pos=p.pointer?.canvas||{x:0,y:0};
+    cm.innerHTML='';
+    const item=(label,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>{cm.style.display='none';fn()};cm.append(b)};
+    const divider=()=>cm.append(document.createElement('hr'));
+    if(nodeId!==undefined){
+      item('✏️ Modifier le nœud (couleur, forme…)',()=>editNode(nodeId));
+      item('🔗 Relier à un autre nœud',()=>{linkMode=true;net.__linkStart=nodeId;$('#gLink').classList.add('pri');net.selectNodes([nodeId]);toast('Nœud de départ sélectionné · clique le second')});
+      item('🗑️ Supprimer ce nœud',()=>{const linked=edges.get({filter:e=>e.from===nodeId||e.to===nodeId}).map(e=>e.id);if(linked.length)edges.remove(linked);nodes.remove(nodeId);later();net.unselectAll();stats()});
+    }else if(edgeId!==undefined){
+      item('✏️ Modifier le lien',()=>editEdge(edgeId));
+      item('🗑️ Supprimer le lien',()=>{edges.remove(edgeId);later();stats()});
+    }else{
+      item('➕ Ajouter un nœud ici',()=>addNode($('#gType').value,pos,$('#gLabel').value.trim()));
+      item('🔗 Mode liaison',()=>{$('#gLink').click()});
+      item('🧹 Tout désélectionner',()=>net.unselectAll());
+      item('🔎 Recentrer le graphe',()=>net.fit({animation:true}));
+    }
+    cm.style.display='block';
+    const rect=$('#vis').getBoundingClientRect();
+    const x=p.event?.clientX??(rect.left+20),y=p.event?.clientY??(rect.top+20);
+    cm.style.left=Math.max(8,Math.min(x,innerWidth-cm.offsetWidth-8))+'px';
+    cm.style.top=Math.max(8,Math.min(y,innerHeight-cm.offsetHeight-8))+'px';
+  };
+  net.on('oncontext',graphContextMenu);
+
   $('#gAdd').onclick=()=>{try{addNode($('#gType').value,null,$('#gLabel').value.trim());$('#gLabel').value=''}catch(e){toast('Impossible d’ajouter le nœud : '+e.message)}};
   $('#gNew').onclick=()=>{if(confirm('Créer un nouveau graphe et effacer celui-ci ?')){nodes.clear();edges.clear();addNode($('#gType').value,null,'Cible');net.fit({animation:true});later()}};
   $('#gLabel').onkeydown=e=>{if(e.key==='Enter')$('#gAdd').click()};
