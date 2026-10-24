@@ -310,7 +310,7 @@ const httpServer = http.createServer(async (req, res) => {
         if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
         const text=filterProfanity(String(B.text||'').trim()).slice(0,2000);
         if(!text) throw E(400,'Message vide');
-        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
+        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
         DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
         await save(); return J(res,200,msg);
       }
