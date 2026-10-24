@@ -285,7 +285,7 @@ const httpServer = http.createServer(async (req, res) => {
       const { type, title, meta, salt, iv, data } = B;
       if (!['graphe', 'carte', 'image'].includes(type) || ![salt, iv, data].every(x => typeof x === 'string')) throw E(400, 'Enregistrement invalide');
       const rec = { id: crypto.randomUUID(), type, title: String(title || 'Sans titre').slice(0, 80), author: me.name, ts: Date.now(), meta: String(meta || '').slice(0, 120), pinned: false, salt, iv, data };
-      DB.records.unshift(rec); log(me.name, 'création', rec, rec.meta); await save(); const { salt: a, iv: b, data: c, ...pub } = rec; return J(res, 200, pub);
+      DB.records.unshift(rec); log(me.name, 'création', rec, rec.meta); save().catch(e=>console.error('Sauvegarde enregistrement:',e)); const { salt: a, iv: b, data: c, ...pub } = rec; return J(res, 200, pub);
     }
     let r = p.match(/^\/api\/records\/([\w-]+)(\/pin)?$/);
     if (r) {
@@ -313,14 +313,14 @@ const httpServer = http.createServer(async (req, res) => {
         if(!text) throw E(400,'Message vide');
         const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
         DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
-        await save(); return J(res,200,msg);
+        save().catch(e=>console.error('Sauvegarde message chat:',e)); return J(res,200,msg);
       }
       if(cr && cr[3]==='reaction' && m==='POST') {
         const msg=DB.chat[roomId].find(x=>x.id===cr[2]); if(!msg) throw E(404,'Message introuvable');
         const emoji=String(B.emoji||'').slice(0,8); if(!emoji) throw E(400,'Réaction invalide');
         msg.reactions ??= {}; msg.reactions[emoji] ??= [];
         const a=msg.reactions[emoji], i=a.indexOf(me.key); if(i>=0)a.splice(i,1);else a.push(me.key);
-        await save(); return J(res,200,{ok:true,reactions:msg.reactions});
+        save().catch(e=>console.error('Sauvegarde réaction chat:',e)); return J(res,200,{ok:true,reactions:msg.reactions});
       }
       if(cr && !cr[3]) {
         const msg=DB.chat[roomId].find(x=>x.id===cr[2]); if(!msg) throw E(404,'Message introuvable');
