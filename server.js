@@ -107,7 +107,7 @@ const J = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'applicati
 const E = (code, msg) => Object.assign(new Error(msg), { code });
 const log = (author, action, rec, detail) => { DB.logs.push({ ts: Date.now(), author, action, type: rec?.type, title: rec?.title, detail: String(detail || '').slice(0, 120) }); DB.logs = DB.logs.slice(-2000); save(); };
 const body = req => new Promise((ok, ko) => { let b = '', n = 0;
-  req.on('data', c => { n += c.length; if (n > 3e6) { ko(E(413, 'Contenu trop volumineux')); req.destroy(); } else b += c; });
+  req.on('data', c => { n += c.length; if (n > 15e6) { ko(E(413, 'Requête trop volumineuse (maximum 15 Mo).')); req.destroy(); } else b += c; });
   req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch { ko(E(400, 'JSON invalide')); } }); });
 const roleById = id => DB.roles.find(r => r.id === id);
 const userRoles = u => (u?.roles || ['member']).map(roleById).filter(Boolean).sort((a,b)=>b.position-a.position);
@@ -281,20 +281,36 @@ const httpServer = http.createServer(async (req, res) => {
       DB.dms[id] ??= {members,created:Date.now(),messages:[]};
       const conv=DB.dms[id];if(!Array.isArray(conv.messages))conv.messages=[];
       if(m==='GET'){
-        conv.messages.forEach(x=>{if(x.to===me.key&&!x.readAt)x.readAt=Date.now()});
-        await save();
+        let changed=false; conv.messages.forEach(x=>{if(x.to===me.key&&!x.readAt){x.readAt=Date.now();changed=true}});
+        if(changed) save().catch(e=>console.error('Sauvegarde lecture DM:',e));
         return J(res,200,{key:other,name:target.name,avatar:target.avatar||'',messages:conv.messages.slice(-500)});
       }
       if(m==='POST'){
         const text=String(B.text||'').trim();
-        if(!text)throw E(400,'Le message est vide');
+        const attachment=B.attachment&&typeof B.attachment==='object'?B.attachment:null;
+        if(!text&&!attachment)throw E(400,'Écris un message ou joins un fichier');
         if(text.length>2000)throw E(400,'Maximum 2 000 caractères par message privé');
+        if(attachment){
+          if(typeof attachment.data!=='string'||!/^data:(application\\/pdf|image\\/(png|jpeg|gif|webp)|video\\/(mp4|webm|quicktime)|text\\/plain|application\\/zip);base64,/.test(attachment.data))throw E(400,'Type de fichier non pris en charge.');
+          if(attachment.data.length>13e6)throw E(413,'Fichier trop lourd : limite actuelle 10 Mo. Utilise un service de partage pour les fichiers plus grands.');
+          attachment.name=String(attachment.name||'fichier').replace(/[\\\\/\\r\\n]/g,'_').slice(0,180);
+          attachment.type=String(attachment.type||'application/octet-stream').slice(0,100);
+        }
         if(Date.now()-(lastMsg['dm:'+me.key]||0)<500)throw E(429,'Attends un instant avant d’envoyer un autre message');
         lastMsg['dm:'+me.key]=Date.now();
-        const msg={id:crypto.randomUUID(),from:me.key,to:other,u:me.name,text:filterProfanity(text),ts:Date.now(),readAt:0};
+        const msg={id:crypto.randomUUID(),from:me.key,to:other,u:me.name,text,attachment,ts:Date.now(),readAt:0};
         conv.messages.push(msg);if(conv.messages.length>500)conv.messages=conv.messages.slice(-500);
         await save();return J(res,200,{ok:true,message:msg});
       }
+    }
+    let dmEdit=p.match(/^\\/api\\/dm-message\\/([^/]+)\\/([^/]+)$/);
+    if(dmEdit){
+      const peer=decodeURIComponent(dmEdit[1]).toLowerCase(),mid=decodeURIComponent(dmEdit[2]),members=[me.key,peer].sort(),c=DB.dms?.[members.join('::')];
+      if(!c||!c.members?.includes(me.key))throw E(404,'Conversation introuvable');
+      const msg=c.messages.find(x=>x.id===mid);if(!msg)throw E(404,'Message introuvable');
+      if(msg.from!==me.key)throw E(403,'Tu peux uniquement modifier ou supprimer tes propres messages privés');
+      if(m==='PATCH'){const text=String(B.text||'').trim();if(!text)throw E(400,'Message vide');if(text.length>2000)throw E(400,'Maximum 2 000 caractères');msg.text=text;msg.editedAt=Date.now();await save();return J(res,200,{ok:true,editedAt:msg.editedAt});}
+      if(m==='DELETE'){c.messages=c.messages.filter(x=>x.id!==mid);await save();return J(res,200,{ok:true});}
     }
     if (p === '/api/me/activity' && m === 'POST') { const sec=Math.max(0,Math.min(300,Number(B.seconds)||0)); DB.users[me.key].stats.totalSeconds+=sec; await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
     if (p === '/api/me/stats/search' && m === 'POST') { DB.users[me.key].stats.searches++; DB.users[me.key].stats.peopleFound+=Math.max(0,Math.min(100,Number(B.people)||0)); await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
