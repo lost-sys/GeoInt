@@ -218,7 +218,7 @@ const httpServer = http.createServer(async (req, res) => {
         const av=String(B.avatar||'');
         if(av && !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(av)) throw E(400,'Photo de profil invalide');
         if(av.length>900000) throw E(400,'Photo de profil trop volumineuse');
-        if(!u.premium && av && av!==u.avatar) throw E(403,'Les avatars personnalisés sont réservés à Premium');
+        
         u.avatar=av;
       }
       if(B.nameGradient!==undefined){
