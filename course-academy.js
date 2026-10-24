@@ -103,9 +103,11 @@ function render(){
 }
 let synced = {};
 function syncCompletion(c, finished){
- if(!finished||synced[c.id]||typeof window.api!=='function')return;
+ if(!finished||synced[c.id])return;
+ // api est une liaison lexicale globale déclarée dans geoint-v7.html, pas window.api.
+ if(typeof api!=='function')return;
  synced[c.id]=true;
- window.api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:true})}).catch(()=>{synced[c.id]=false;});
+ api('/api/me/stats/course',{method:'POST',body:JSON.stringify({course:c.id,completed:true})}).catch(()=>{synced[c.id]=false;});
 }
 window.renderCourses = render; // Compatibilité avec le gestionnaire d’onglets GeoInt existant.
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',render);else render();
