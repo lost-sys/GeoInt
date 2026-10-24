@@ -121,8 +121,8 @@ const chatAntiSpam = new Map();
 // Modération automatique en étapes : avertissement, blocage/suppression, puis silence temporaire.
 // Les infractions sont conservées par utilisateur et expirent après 24 h.
 const MODERATION_RULES = [
-  { type:'insulte', re:/(?:\\b(?:connard|connasse|encul[eé]?|salope|batard|bâtard|fdp|pute|branleur|branleuse)\\b|fils de pute|nique ta m[eè]re|va te faire foutre)/iu },
-  { type:'propos agressifs', re:/(?:\\b(?:je vais te tuer|je vais te retrouver|je vais te frapper|cr[eè]ve)\\b)/iu }
+  { type:'insulte', re:/(?:\b(?:connard|connasse|encul[eé]?|salope|batard|bâtard|fdp|pute|branleur|branleuse)\b|fils de pute|nique ta m[eè]re|va te faire foutre)/iu },
+  { type:'propos agressifs', re:/(?:\b(?:je vais te tuer|je vais te retrouver|je vais te frapper|cr[eè]ve)\b)/iu }
 ];
 const detectModerationViolation = text => MODERATION_RULES.find(rule => rule.re.test(text)) || null;
 const applyAutoModeration = async (me, text, roomId, violation) => {
