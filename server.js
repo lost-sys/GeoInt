@@ -42,8 +42,8 @@ function normalizeDB(db){
   const d = db && typeof db === 'object' ? db : defaults();
   d.users ??= {}; d.sessions ??= {}; d.records ??= []; d.logs ??= []; d.chat ??= {};
   d.updates ??= defaults().updates; d.seq ??= 0; d.roles ??= defaults().roles; d.channels ??= defaults().channels;
-  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; u.stats??={totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0}; u.stats.totalSeconds=Number(u.stats.totalSeconds)||0; u.stats.searches=Number(u.stats.searches)||0; u.stats.peopleFound=Number(u.stats.peopleFound)||0; u.stats.coursesCompleted=Number(u.stats.coursesCompleted)||0; });
-  if(d.users.lost) d.users.lost.roles=['owner'];
+  Object.values(d.users).forEach(u=>{ if(!Array.isArray(u.roles)||!u.roles.length) u.roles=['member']; u.avatar=typeof u.avatar==='string'?u.avatar:''; u.bio=typeof u.bio==='string'?u.bio:''; u.premium=!!u.premium; u.nameGradient=typeof u.nameGradient==='string'?u.nameGradient:'none'; u.serverMuted=!!u.serverMuted; u.serverDeafened=!!u.serverDeafened; u.stats??={totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0}; u.stats.totalSeconds=Number(u.stats.totalSeconds)||0; u.stats.searches=Number(u.stats.searches)||0; u.stats.peopleFound=Number(u.stats.peopleFound)||0; u.stats.coursesCompleted=Number(u.stats.coursesCompleted)||0; });
+  if(d.users.lost){d.users.lost.roles=['owner'];d.users.lost.premium=true;}
   return d;
 }
 
@@ -143,7 +143,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (key === 'lost') { if (!ADMIN_CODE || sha(String(B.adminCode || '')) !== sha(ADMIN_CODE)) throw E(403, 'Ce pseudo est réservé au créateur du site'); }
       else if (norm(name) === 'lost' || /admin|staff|moderat/i.test(name)) throw E(403, 'Ce pseudo est réservé');
       if (DB.users[key]) throw E(409, 'Ce pseudo est déjà pris');
-      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'], avatar:'', bio:'', serverMuted:false, serverDeafened:false, timeoutUntil:0, stats:{totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0} };
+      const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'], avatar:'', bio:'', premium:key==='lost', nameGradient:'none', serverMuted:false, serverDeafened:false, timeoutUntil:0, stats:{totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0} };
       log(name, 'inscription'); return token(res, key);
     }
     if (p === '/api/login' && m === 'POST') {
@@ -211,15 +211,28 @@ const httpServer = http.createServer(async (req, res) => {
       if (!text) throw E(502, 'Gemini a renvoyé une réponse vide. Réessaie.');
       return J(res, 200, { ok: true, text, model: ECONOMIC_AI_MODEL });
     }
-    if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'' });
+    if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, premium:!!DB.users[me.key]?.premium, nameGradient:DB.users[me.key]?.nameGradient||'none', roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'' });
     if (p === '/api/me/profile' && m === 'PATCH') {
       const u=DB.users[me.key];
-      if(B.avatar!==undefined){ const av=String(B.avatar||''); if(av && !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(av)) throw E(400,'Photo de profil invalide'); if(av.length>900000) throw E(400,'Photo de profil trop volumineuse'); u.avatar=av; }
+      if(B.avatar!==undefined){
+        const av=String(B.avatar||'');
+        if(av && !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(av)) throw E(400,'Photo de profil invalide');
+        if(av.length>900000) throw E(400,'Photo de profil trop volumineuse');
+        if(!u.premium && /data:image\/gif/i.test(av)) throw E(403,'Les avatars GIF sont réservés à Premium');
+        
+        u.avatar=av;
+      }
+      if(B.nameGradient!==undefined){
+        const allowed=['none','sunset','ocean','neon','fire','candy','aurora'];
+        if(!allowed.includes(B.nameGradient)) throw E(400,'Dégradé invalide');
+        if(B.nameGradient!=='none'&&!u.premium) throw E(403,'Les dégradés de pseudo sont réservés à Premium');
+        u.nameGradient=B.nameGradient;
+      }
       if(B.bio!==undefined) u.bio=String(B.bio||'').slice(0,160);
-      await save(); log(me.name,'modification profil', {title:me.name}, 'photo/bio');
-      return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||''});
+      await save(); log(me.name,'modification profil', {title:me.name}, 'photo/bio/thème');
+      return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||'',nameGradient:u.nameGradient||'none',premium:!!u.premium});
     }
-    let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',roles:userRoles({...u,key}).map(roleView),created:u.created,stats:u.stats||{}}); }
+    let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',premium:!!u.premium,nameGradient:u.nameGradient||'none',roles:userRoles({...u,key}).map(roleView),created:u.created,stats:u.stats||{}}); }
     if (p === '/api/me/activity' && m === 'POST') { const sec=Math.max(0,Math.min(300,Number(B.seconds)||0)); DB.users[me.key].stats.totalSeconds+=sec; await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
     if (p === '/api/me/stats/search' && m === 'POST') { DB.users[me.key].stats.searches++; DB.users[me.key].stats.peopleFound+=Math.max(0,Math.min(100,Number(B.people)||0)); await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
     if (p === '/api/me/stats/course' && m === 'POST') { const cid=String(B.course||'').slice(0,60), key='course_'+cid; if(B.completed&&!DB.users[me.key].stats[key]){DB.users[me.key].stats.coursesCompleted++;DB.users[me.key].stats[key]=true;await save()} return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
@@ -298,7 +311,7 @@ const httpServer = http.createServer(async (req, res) => {
         if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
         const text=filterProfanity(String(B.text||'').trim()).slice(0,2000);
         if(!text) throw E(400,'Message vide');
-        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
+        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
         DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
         await save(); return J(res,200,msg);
       }
