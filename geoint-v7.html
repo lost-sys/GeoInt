@@ -1169,14 +1169,39 @@ async function openProfile(key){try{const p=await api('/api/profile/'+encodeURIC
  }
  async function loadDM(){
    if(!activeDMKey||!sessionToken||dmBusy)return;dmBusy=true;
-   try{const c=await api('/api/dm/'+encodeURIComponent(activeDMKey));$('#dmPeer').textContent=c.name;$('#dmPeerAvatar').innerHTML='<img class="chatAvatar" style="width:42px;height:42px" src="'+dmEscape(avatarData(c.avatar,c.name))+'" alt="">';
-     const box=$('#dmMessages'),stick=box.scrollHeight-box.scrollTop-box.clientHeight<80,sig=JSON.stringify(c.messages.map(m=>[m.id,m.text,m.readAt]));
-     if(box.dataset.sig!==sig){box.dataset.sig=sig;box.innerHTML=c.messages.map(m=>{const mine=m.from===getUser().toLowerCase();return '<div style="display:flex;justify-content:'+(mine?'flex-end':'flex-start')+';margin:6px 0"><div style="max-width:88%;padding:8px 10px;border-radius:12px;background:'+(mine?'var(--acc)':'var(--panel2)')+';color:'+(mine?'#101318':'var(--tx)')+';overflow-wrap:anywhere"><div style="font-size:10px;opacity:.75;margin-bottom:3px">'+dmEscape(m.u||m.from)+' · '+dmEscape(new Date(m.ts).toLocaleString('fr-FR'))+'</div><div style="white-space:pre-wrap">'+dmEscape(m.text)+'</div>'+(mine?'<div style="font-size:10px;text-align:right;opacity:.7;margin-top:3px">'+(m.readAt?'✓✓ Lu':'✓ Envoyé')+'</div>':'')+'</div></div>'}).join('')||'<div style="color:var(--mut);text-align:center;margin-top:20px">C’est le début de votre conversation. Dis bonjour 👋</div>';if(stick)box.scrollTop=box.scrollHeight;}
-     await renderDMList();
-   }catch(e){$('#dmMessages').innerHTML='<div class="warn">'+dmEscape(e.message)+'</div>'}finally{dmBusy=false}
+   const key=activeDMKey;
+   try{const c=await api('/api/dm/'+encodeURIComponent(key));if(key!==activeDMKey)return;
+     $('#dmPeer').textContent=c.name;
+     $('#dmPeerAvatar').innerHTML='<img class="chatAvatar" style="width:42px;height:42px;object-fit:cover;border-radius:50%" src="'+dmEscape(avatarData(c.avatar,c.name))+'" alt="">';
+     const box=$('#dmMessages'),stick=box.scrollHeight-box.scrollTop-box.clientHeight<100,sig=JSON.stringify(c.messages.map(m=>[m.id,m.text,m.readAt]));
+     if(box.dataset.sig!==sig){
+       box.dataset.sig=sig;
+       box.innerHTML=c.messages.map(m=>{
+         const mine=m.from===getUser().toLowerCase(),photo=mine?(window.__dmMyAvatar||''):c.avatar;
+         const avatar='<img class="chatAvatar" style="width:34px;height:34px;flex:0 0 34px;object-fit:cover;border-radius:50%;margin-top:3px" src="'+dmEscape(avatarData(photo,mine?getUser():c.name))+'" alt="">';
+         return '<div style="display:flex;align-items:flex-start;justify-content:'+(mine?'flex-end':'flex-start')+';gap:9px;margin:12px 0">'+(mine?'':avatar)+'<div style="max-width:78%;min-width:0;padding:10px 12px;border-radius:13px;background:'+(mine?'var(--acc)':'var(--panel2)')+';color:'+(mine?'#101318':'var(--tx)')+';overflow-wrap:anywhere"><div style="font-size:11px;opacity:.75;margin-bottom:4px">'+dmEscape(m.u||m.from)+' · '+dmEscape(new Date(m.ts).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))+'</div><div style="white-space:pre-wrap">'+dmEscape(m.text)+'</div>'+(mine?'<div style="font-size:10px;text-align:right;opacity:.7;margin-top:4px">'+(m.readAt?'✓✓ Lu':'✓ Envoyé')+'</div>':'')+'</div>'+(mine?avatar:'')+'</div>';
+       }).join('')||'<div style="color:var(--mut);text-align:center;margin-top:20px">C’est le début de votre conversation. Dis bonjour 👋</div>';
+       if(stick)box.scrollTop=box.scrollHeight;
+     }
+     renderDMList();
+   }catch(e){if(key===activeDMKey)$('#dmMessages').innerHTML='<div class="warn">'+dmEscape(e.message)+'</div>'}finally{dmBusy=false}
  }
- async function openDM(key){if(!sessionToken){openAuth('login');return}const normalized=String(key||'').toLowerCase();if(!normalized||normalized===getUser().toLowerCase())return toast('Choisis un autre membre pour discuter.');activeDMKey=normalized;$('#profileDlg').close();if(!$('#dmDlg').open)$('#dmDlg').showModal();document.body.classList.add('dm-mode');$('#dmDlg').classList.add('discordDM');$('#dmMessages').dataset.sig='';$('#dmPeer').textContent='Connexion…';await renderDMList();await loadDM();$('#dmInput').focus();}
- async function sendDM(){if(!activeDMKey||dmBusy)return;const input=$('#dmInput'),text=input.value.trim();if(!text)return;const key=activeDMKey;input.disabled=true;$('#dmSend').disabled=true;try{await api('/api/dm/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({text})});input.value='';$('#dmMessages').dataset.sig='';await loadDM()}catch(e){toast(e.message)}finally{input.disabled=false;$('#dmSend').disabled=false;input.focus()}}
+ async function sendDM(){
+   if(!activeDMKey)return;
+   const input=$('#dmInput'),text=input.value.trim();if(!text)return;
+   const key=activeDMKey,button=$('#dmSend'),box=$('#dmMessages'),now=Date.now(),tempId='pending-'+now;
+   const mine=getUser(),photo=window.__dmMyAvatar||'';
+   const avatar='<img class="chatAvatar" style="width:34px;height:34px;flex:0 0 34px;object-fit:cover;border-radius:50%;margin-top:3px" src="'+dmEscape(avatarData(photo,mine))+'" alt="">';
+   const pending='<div data-pending-dm="'+tempId+'" style="display:flex;justify-content:flex-end;align-items:flex-start;gap:9px;margin:12px 0"><div style="max-width:78%;padding:10px 12px;border-radius:13px;background:var(--acc);color:#101318;overflow-wrap:anywhere"><div style="font-size:11px;opacity:.75;margin-bottom:4px">'+dmEscape(mine)+' · '+dmEscape(new Date(now).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}))+'</div><div style="white-space:pre-wrap">'+dmEscape(text)+'</div><div style="font-size:10px;text-align:right;opacity:.7;margin-top:4px">Envoi…</div></div>'+avatar+'</div>';
+   input.value='';box.insertAdjacentHTML('beforeend',pending);box.scrollTop=box.scrollHeight;button.disabled=true;
+   try{
+     await api('/api/dm/'+encodeURIComponent(key),{method:'POST',body:JSON.stringify({text})});
+     const pendingEl=box.querySelector('[data-pending-dm="'+tempId+'"]');if(pendingEl)pendingEl.remove();
+     if(key===activeDMKey){box.dataset.sig='';loadDM();}
+     renderDMList();
+   }catch(e){const pendingEl=box.querySelector('[data-pending-dm="'+tempId+'"]');if(pendingEl)pendingEl.querySelector('div div:last-child').textContent='Échec · '+e.message;toast(e.message)}
+   finally{button.disabled=false}
+ }
  $('#dmSend').onclick=sendDM;$('#dmInput').onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendDM()}};$('#dmRefresh').onclick=()=>{renderDMList();loadDM()};
  function closeDM(){if($('#dmDlg').open)$('#dmDlg').close();document.body.classList.remove('dm-mode');activeDMKey=''}$('#dmClose').onclick=closeDM;$('#dmBackServer').onclick=closeDM;$('#openDMHub').onclick=()=>{if(!sessionToken){openAuth('login');return}activeDMKey='';$('#dmDlg').showModal();document.body.classList.add('dm-mode');$('#dmPeer').textContent='Messages privés';$('#dmPeerAvatar').innerHTML='';$('#dmMessages').dataset.sig='';$('#dmMessages').innerHTML='<div class="dmWelcome"><div class="big">✉️</div><b>Bienvenue dans tes messages privés</b><p>Choisis une conversation à gauche ou ouvre le profil d’un membre.</p></div>';renderDMList()};$('#dmSearch').oninput=renderDMList;$('#dmCall').onclick=()=>toast('Les appels privés ne sont pas encore connectés : il faut ajouter la signalisation vocale entre deux utilisateurs.');$('#dmDlg').addEventListener('close',()=>{activeDMKey='';document.body.classList.remove('dm-mode')});
 async function openSettings(){try{const p=await api('/api/me');window.__myProfile=p;window.__presetData='';$('#myAvatarPreview').src=avatarData(p.avatar,p.name);$('#myBio').value=p.bio||'';$('#nameGradient').value=p.nameGradient||'none';$('#profilePremiumStatus').textContent=p.premium?'✦ Premium actif : dégradés et GIF disponibles.':'Options verrouillées : abonnement Premium requis.';$('#nameGradient').disabled=!p.premium;$('#avatarFile').disabled=false;document.querySelectorAll('[data-avatar-preset]').forEach(b=>b.disabled=!p.premium);$('#newPassword').value='';$('#newPassword2').value='';$('#avatarFile').value='';$('#settingsDlg').showModal()}catch(e){toast(e.message)}}
