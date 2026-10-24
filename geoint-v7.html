@@ -251,7 +251,7 @@ dialog{position:relative}
 <header>
   <h1><b>GEO</b>INT <span class="mono" style="color:var(--mut);font-size:11px">v13.3</span></h1>
   <nav role="tablist">
-    <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button data-t="courses">⑦ Cours</button><button data-t="about">⑧ Équipe</button><button id="manageTab" data-t="manage" style="display:none">⚙️ Gestion</button>
+    <button class="on" data-t="img">① Image</button><button data-t="map">② Carte</button><button data-t="graph">③ Graphe</button><button data-t="rec">④ Enregistrements</button><button data-t="chat">⑤ Chat</button><button data-t="updates">⑥ Mises à jour</button><button data-t="courses">⑦ Cours</button><button data-t="about">⑧ Équipe</button><button id="manageTab" data-t="manage" style="display:none!important" aria-hidden="true" tabindex="-1">⚙️ Gestion</button>
   </nav>
   <button id="appearanceBtn" type="button" title="Personnaliser le fond">🎨 Apparence</button>
   <button id="installBtn">⬇ Installer</button><button id="userBtn">👤 Connexion</button><button id="keyBtn">🔑 IA & clés</button>
@@ -872,7 +872,7 @@ const isAdmin=()=>localStorage.getItem('geoint_admin')==='1';
 const hasPermission=p=>isAdmin()||myPermissions.includes('*')||myPermissions.includes(p);
 const roleHtml=roles=>(roles||[]).map(r=>`<span class="roleTag" style="color:${esc(r.color)}">${esc(r.name)}</span>`).join('');
 const canManage=()=>hasPermission('manage_roles')||hasPermission('manage_users')||hasPermission('manage_channels');
-const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display=sessionToken&&canManage()?'inline-block':'none';$('#chatSettingsBtn').style.display=sessionToken&&canManage()?'inline-flex':'none'};
+const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display='none';$('#chatSettingsBtn').style.display=sessionToken&&canManage()?'inline-flex':'none'};
 const ensureUser=async()=>{if(sessionToken)return getUser();openAuth('login');return ''};
 
 function avatarData(src,name='?'){return src||'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="48" fill="#151a20"/><text x="48" y="60" text-anchor="middle" font-size="44" fill="#8b96a3">${String(name||'?')[0].toUpperCase()}</text></svg>`)}
