@@ -329,9 +329,9 @@ dialog{position:relative}
   </div>
 </section>
 
-<section id="t-manage" class="tab">
-  <div class="card" style="overflow:auto">
-    <div class="bar2"><h3 style="margin:0">Gestion du serveur</h3><span class="badge">RÔLES & UTILISATEURS</span><button id="openLogsBtn">📋 Logs</button></div>
+<section id="t-manage" class="tab manageOverlay" aria-hidden="true">
+  <div class="manageDialog">
+    <div class="manageHeader"><h3>⚙️ Gestion du serveur</h3><span class="badge">RÔLES & UTILISATEURS</span><button id="openLogsBtn">📋 Logs</button><button type="button" id="closeManagementBtn" class="manageClose" aria-label="Fermer la gestion">×</button></div>
     <div class="roleAdminGrid" style="margin-top:12px">
       <div class="card"><h3>Rôles</h3><div id="roleList"></div><button id="newRole" class="pri">+ Créer un rôle</button></div>
       <div class="card"><h3>Utilisateurs</h3><div id="userList"></div></div>
@@ -339,6 +339,7 @@ dialog{position:relative}
     </div>
   </div>
 </section>
+<button id="chatSettingsBtn" type="button" aria-label="Ouvrir les réglages de gestion" title="Réglages du serveur">⚙</button>
 
 <dialog id="roleDlg"><h3>Éditeur de rôle</h3><div class="fg"><span class="k">Nom</span><input id="roleName" maxlength="30" placeholder="Ex. Modérateur"></div><div class="fg"><span class="k">Couleur</span><input id="roleColor" type="color" value="#5aa9ff"></div><div class="fg"><span class="k">Position</span><input id="rolePosition" type="number" min="1" max="99" value="10"></div><label style="display:flex;gap:8px;align-items:center"><input id="roleHoist" type="checkbox"> Afficher séparément dans la liste</label><label style="display:flex;gap:8px;align-items:center;margin:7px 0 10px"><input id="roleMentionable" type="checkbox"> Autoriser les mentions</label><h3>Permissions</h3><div id="permList" class="permGrid"></div><div class="bar2" style="margin-top:12px"><button id="roleSave" class="pri">Enregistrer</button><button id="roleCancel">Annuler</button></div></dialog>
 <dialog id="profileDlg"><button class="dialogX" id="profileX" type="button" aria-label="Fermer">×</button><h3 id="profileTitle">Profil</h3><div id="profileContent"></div><div class="bar2" style="margin-top:12px"><button id="profileClose">Fermer</button></div></dialog>
