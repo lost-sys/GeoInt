@@ -222,12 +222,19 @@ dialog{position:relative}
 }
 
 
-/* Transparence réglable des panneaux principaux (chat inclus) */
+/* Transparence réglable des panneaux du site, sans toucher aux cartes */
 :root{--panel-opacity:1}
-#t-chat>.card,#t-chat .chatBox,#t-chat .chatRooms,#t-chat .voicePanel,#t-chat .chatComposer{
+.tab:not(#t-map) .card,
+#t-chat>.card,#t-chat .chatBox,#t-chat .chatRooms,#t-chat .voicePanel,#t-chat .chatComposer,
+#t-img .card,#t-graph .card,#t-manage .card{
  background:color-mix(in srgb,var(--panel) calc(var(--panel-opacity)*100%),transparent)!important;
 }
-#t-chat .chatMsg,#t-chat .chatMessage{background:color-mix(in srgb,var(--panel) calc(var(--panel-opacity)*55%),transparent)}
+#t-chat .chatMsg,#t-chat .chatMessage{
+ background:color-mix(in srgb,var(--panel) calc(var(--panel-opacity)*55%),transparent);
+}
+/* Les fonds des cartes Leaflet et des conteneurs cartographiques restent opaques. */
+#t-map #map,#t-map .leaflet-container,#t-map .mh,#mapHost,#mapHost2,
+.leaflet-container,.leaflet-pane,.leaflet-tile-container{background-color:var(--panel)!important}
 
 /* ---------- Apparence personnalisable GeoInt ---------- */
 #appearanceBtn{white-space:nowrap}
