@@ -214,10 +214,22 @@ const httpServer = http.createServer(async (req, res) => {
     if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, premium:!!DB.users[me.key]?.premium, nameGradient:DB.users[me.key]?.nameGradient||'none', roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'' });
     if (p === '/api/me/profile' && m === 'PATCH') {
       const u=DB.users[me.key];
-      if(B.avatar!==undefined){ const av=String(B.avatar||''); if(av && !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(av)) throw E(400,'Photo de profil invalide'); if(av.length>900000) throw E(400,'Photo de profil trop volumineuse'); u.avatar=av; }
+      if(B.avatar!==undefined){
+        const av=String(B.avatar||'');
+        if(av && !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(av)) throw E(400,'Photo de profil invalide');
+        if(av.length>900000) throw E(400,'Photo de profil trop volumineuse');
+        if(!u.premium && av && av!==u.avatar) throw E(403,'Les avatars personnalisés sont réservés à Premium');
+        u.avatar=av;
+      }
+      if(B.nameGradient!==undefined){
+        const allowed=['none','sunset','ocean','neon','fire','candy','aurora'];
+        if(!allowed.includes(B.nameGradient)) throw E(400,'Dégradé invalide');
+        if(B.nameGradient!=='none'&&!u.premium) throw E(403,'Les dégradés de pseudo sont réservés à Premium');
+        u.nameGradient=B.nameGradient;
+      }
       if(B.bio!==undefined) u.bio=String(B.bio||'').slice(0,160);
-      await save(); log(me.name,'modification profil', {title:me.name}, 'photo/bio');
-      return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||''});
+      await save(); log(me.name,'modification profil', {title:me.name}, 'photo/bio/thème');
+      return J(res,200,{ok:true,avatar:u.avatar||'',bio:u.bio||'',nameGradient:u.nameGradient||'none',premium:!!u.premium});
     }
     let prof=p.match(/^\/api\/profile\/([^/]+)$/); if(prof&&m==='GET'){ const key=decodeURIComponent(prof[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); return J(res,200,{name:u.name,avatar:u.avatar||'',bio:u.bio||'',premium:!!u.premium,nameGradient:u.nameGradient||'none',roles:userRoles({...u,key}).map(roleView),created:u.created,stats:u.stats||{}}); }
     if (p === '/api/me/activity' && m === 'POST') { const sec=Math.max(0,Math.min(300,Number(B.seconds)||0)); DB.users[me.key].stats.totalSeconds+=sec; await save(); return J(res,200,{ok:true,stats:DB.users[me.key].stats}); }
