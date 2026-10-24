@@ -334,6 +334,13 @@ const httpServer = http.createServer(async (req, res) => {
       const channel=channelById(roomId);
       if(!channel || channel.type!=='text') throw E(404,'Salon texte introuvable');
       DB.chat[roomId] ??= [];
+      if(croot && m==='DELETE') {
+        if(!hasPerm(me,'moderate_chat')) throw E(403,'Permission requise : modérer les messages');
+        const deleted=DB.chat[roomId].length;
+        DB.chat[roomId]=[];
+        await save();
+        return J(res,200,{ok:true,deleted,roomId});
+      }
       if(croot && m==='GET') {
         return J(res,200,DB.chat[roomId].slice(-300).map(x=>({...x,roles:(x.roles||[]).map(roleView),timeoutUntil:Number(DB.users[x.key]?.timeoutUntil)||0})));
       }
