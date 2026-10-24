@@ -211,7 +211,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (!text) throw E(502, 'Gemini a renvoyé une réponse vide. Réessaie.');
       return J(res, 200, { ok: true, text, model: ECONOMIC_AI_MODEL });
     }
-    if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, premium:!!DB.users[me.key]?.premium, nameGradient:DB.users[me.key]?.nameGradient||'none', roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'' });
+    if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, premium:!!DB.users[me.key]?.premium, nameGradient:DB.users[me.key]?.nameGradient||'none', roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'', timeoutUntil:Number(DB.users[me.key]?.timeoutUntil)||0 });
     if (p === '/api/me/profile' && m === 'PATCH') {
       const u=DB.users[me.key];
       if(B.avatar!==undefined){
@@ -252,7 +252,7 @@ const httpServer = http.createServer(async (req, res) => {
     if(ch&&m==='DELETE'){ if(!hasPerm(me,'manage_channels'))throw E(403,'Permission requise : gérer les salons'); const id=decodeURIComponent(ch[1]); if(id==='general'||id==='vocal-general')throw E(400,'Ce salon système ne peut pas être supprimé'); const i=DB.channels.findIndex(c=>c.id===id); if(i<0)throw E(404,'Salon introuvable'); const removed=DB.channels[i]; DB.channels.splice(i,1); delete DB.chat[id]; VOICE.delete(id); voiceSignals.delete(id); log(me.name,'salon supprimé',{title:removed.name},removed.type); await save(); return J(res,200,{ok:true}); }
 
     /* ---- modération texte / vocal ---- */
-    let mod=p.match(/^\/api\/moderation\/([^/]+)$/); if(mod&&m==='POST'){ const key=decodeURIComponent(mod[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); if(key==='lost')throw E(400,'Le propriétaire ne peut pas être modéré'); const action=String(B.action||''); if(action==='timeout'){if(!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} else if(action==='server_mute'||action==='server_deafen'||action==='clear'){if(!hasPerm(me,'mute_members')&&!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} if(action==='timeout'){const mins=Math.max(1,Math.min(1440,+B.minutes||10));u.timeoutUntil=Date.now()+mins*60000;} else if(action==='server_mute')u.serverMuted=!!B.value; else if(action==='server_deafen')u.serverDeafened=!!B.value; else if(action==='clear'){u.timeoutUntil=0;u.serverMuted=false;u.serverDeafened=false;} else throw E(400,'Action de modération inconnue'); log(me.name,'modération',{title:u.name},action+(action==='timeout'?` ${Math.max(1,Math.min(1440,+B.minutes||10))} min`:'')); await save(); return J(res,200,{ok:true}); }
+    let mod=p.match(/^\/api\/moderation\/([^/]+)$/); if(mod&&m==='POST'){ const key=decodeURIComponent(mod[1]).toLowerCase(),u=DB.users[key]; if(!u)throw E(404,'Utilisateur introuvable'); if(key==='lost')throw E(400,'Le propriétaire ne peut pas être modéré'); const action=String(B.action||''); if(action==='timeout'){if(!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} else if(action==='server_mute'||action==='server_deafen'||action==='clear'){if(!hasPerm(me,'mute_members')&&!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');} if(action==='timeout'){const mins=Math.max(1,Math.min(1440,+B.minutes||10));u.timeoutUntil=Math.max(Date.now(),Number(u.timeoutUntil)||0)+mins*60000;} else if(action==='untimeout'){if(!hasPerm(me,'moderate_members'))throw E(403,'Permission requise : modérer les membres');u.timeoutUntil=0;} else if(action==='server_mute')u.serverMuted=!!B.value; else if(action==='server_deafen')u.serverDeafened=!!B.value; else if(action==='clear'){u.timeoutUntil=0;u.serverMuted=false;u.serverDeafened=false;} else throw E(400,'Action de modération inconnue'); log(me.name,'modération',{title:u.name},action+(action==='timeout'?` ${Math.max(1,Math.min(1440,+B.minutes||10))} min`:'')); await save(); return J(res,200,{ok:true}); }
 
     /* ---- vocal WebRTC : signalisation légère, sans stockage persistant ---- */
     let vr=p.match(/^\/api\/voice\/([^/]+)(?:\/([^/]+))?$/); if(vr){
@@ -304,7 +304,7 @@ const httpServer = http.createServer(async (req, res) => {
       if(!channel || channel.type!=='text') throw E(404,'Salon texte introuvable');
       DB.chat[roomId] ??= [];
       if(croot && m==='GET') {
-        return J(res,200,DB.chat[roomId].slice(-300).map(x=>({...x,roles:(x.roles||[]).map(roleView)})));
+        return J(res,200,DB.chat[roomId].slice(-300).map(x=>({...x,roles:(x.roles||[]).map(roleView),timeoutUntil:Number(DB.users[x.key]?.timeoutUntil)||0})));
       }
       if(croot && m==='POST') {
         if(channel.readonly && !hasPerm(me,'post_announcements')) throw E(403,'Ce salon est en lecture seule');
