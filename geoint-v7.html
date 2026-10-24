@@ -854,7 +854,7 @@ const isAdmin=()=>localStorage.getItem('geoint_admin')==='1';
 const hasPermission=p=>isAdmin()||myPermissions.includes('*')||myPermissions.includes(p);
 const roleHtml=roles=>(roles||[]).map(r=>`<span class="roleTag" style="color:${esc(r.color)}">${esc(r.name)}</span>`).join('');
 const canManage=()=>hasPermission('manage_roles')||hasPermission('manage_users')||hasPermission('manage_channels');
-const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display='none';$('#chatSettingsBtn').style.display=sessionToken&&canManage()?'inline-flex':'none'};
+const refreshUser=()=>{$('#userBtn').innerHTML=sessionToken?'👤 '+esc(getUser()||'Profil')+roleHtml(myRoles):'👤 Connexion';$('#manageTab').style.display=sessionToken&&canManage()?'inline-block':'none';$('#chatSettingsBtn').style.display=sessionToken&&canManage()?'inline-flex':'none'};
 const ensureUser=async()=>{if(sessionToken)return getUser();openAuth('login');return ''};
 
 function avatarData(src,name='?'){return src||'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96"><rect width="96" height="96" rx="48" fill="#151a20"/><text x="48" y="60" text-anchor="middle" font-size="44" fill="#8b96a3">${String(name||'?')[0].toUpperCase()}</text></svg>`)}
