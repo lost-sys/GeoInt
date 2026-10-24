@@ -67,8 +67,8 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
 #t-updates{grid-template-columns:1fr;overflow:auto}
 .chatRooms{display:flex;flex-direction:column;gap:6px;min-height:0}
  body.dm-mode{overflow:hidden}
- body.dm-mode>header,body.dm-mode>main,body.dm-mode>#chatSettingsBtn{display:none!important}
- #dmDlg.discordDM{position:fixed;inset:0;width:100vw;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:#0e1014;overflow:hidden}
+ body.dm-mode>header,body.dm-mode>#chatSettingsBtn{display:none!important}
+ #dmDlg.discordDM{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;max-width:none;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:#0e1014;overflow:hidden;z-index:9999}
  #dmDlg.discordDM::backdrop{background:#0e1014}
  .dmApp{height:100%;min-height:0;display:grid;grid-template-columns:74px 280px minmax(0,1fr);background:#0e1014}
  .dmRail{background:#090b0e;border-right:1px solid #20242b;display:flex;flex-direction:column;align-items:center;gap:12px;padding:18px 8px}
@@ -80,7 +80,7 @@ dialog::backdrop{background:#000a}.warn{color:var(--bad);font-size:12px}
  .dmMain{display:flex;flex-direction:column;min-width:0;min-height:0;background:#101216}
  .dmMainHead{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid #252a32;min-height:76px}
  .dmMainHead h2{font-size:17px;margin:0;color:var(--tx)}.dmMainHead .dmSub{font-size:11px;color:var(--mut)}
- .dmMainMessages{flex:1;min-height:0;overflow:auto;padding:22px clamp(12px,4vw,50px)}
+ .dmMainMessages{flex:1;min-height:0;overflow:auto;padding:22px clamp(12px,4vw,50px);background:#101216}
  .dmMainComposer{display:flex;gap:10px;padding:12px clamp(12px,4vw,50px) 22px}.dmMainComposer input{flex:1;min-width:0;background:#20242b;border-color:#303640;padding:14px 16px;border-radius:12px}.dmMainComposer button{padding:12px 18px}
  .dmWelcome{margin:auto;text-align:center;color:var(--mut);padding:30px}.dmWelcome .big{font-size:46px;margin-bottom:12px}.dmSideSection{font-size:10px;color:var(--mut);letter-spacing:.12em;text-transform:uppercase;padding:12px 10px 5px}
  @media(max-width:700px){.dmApp{grid-template-columns:56px minmax(110px,34vw) minmax(0,1fr)}.dmRail{padding:12px 4px}.dmRailBtn{width:40px;height:40px}.dmSidebarHead{padding:14px 8px}.dmSidebarHead h2{font-size:14px}.dmMainHead{padding:12px}.dmMainComposer{padding:8px}.dmMainComposer button{padding:9px}.dmConversationList{padding:4px}.dmConversationList .chatAvatar{display:none}}
