@@ -1122,14 +1122,7 @@ function show(j){
   const best=exifPt||(plotted[0]&&[Number(plotted[0].lat),Number(plotted[0].lng)]);if(best){const radius=exifPt?0:Math.max((Number(plotted[0]?.radius_km)||0),mapSourceFor(plotted[0]||{})?1:20);map.flyTo(best,exifPt?14:radius>=100?4:radius>=20?6:radius>=5?8:10);if(exifPt||mapSourceFor(plotted[0]||{}))setTarget(best)}
   renderChrono(j,best);
   document.querySelectorAll('.cand').forEach(el=>el.onclick=()=>{const x=c[el.dataset.i];if(!Number.isFinite(Number(x.lat))||!Number.isFinite(Number(x.lng)))return;const source=mapSourceFor(x),radius=Math.max((Number(x.radius_km)||0),source?1:20);map.flyTo([Number(x.lat),Number(x.lng)],radius>=100?4:radius>=20?6:radius>=5?8:10)});
-  $('#cands').innerHTML=c.map((x,i)=>{const source=mapSourceFor(x),confidence=source?Math.min(100,Math.max(0,Number(x.confidence)||0)):Math.min(39,Math.max(0,Number(x.confidence)||0));return `<div class="cand" data-i="${i}"><b>${esc(x.place)}</b> <span class="mono" style="float:right;color:var(--acc)">${Math.round(confidence)}%${x.radius_km?' · ±'+(x.radius_km<1?Math.round(x.radius_km*1000)+' m':Math.round(x.radius_km)+' km'):''}</span>
-    <div style="font-size:12px;color:var(--mut)">${esc(x.reason)}</div><div style="font-size:11px;color:${source?'var(--ok)':'var(--bad)'}">${source?'Confirmé par Google Maps : '+esc(source.title):'Hypothèse non confirmée par Google Maps — aucun point placé.'}</div>${(x.for||[]).map(t=>`<div style="font-size:11px;color:var(--ok)">＋ ${esc(t)}</div>`).join('')}${(x.against||[]).map(t=>`<div style="font-size:11px;color:var(--bad)">－ ${esc(t)}</div>`).join('')}<div class="bar"><i style="width:${Math.min(100,Math.max(0,confidence))}%"></i></div></div>`}).join('')||'Aucune hypothèse.';
-  confirmed.forEach(x=>addPin([Number(x.lat),Number(x.lng)],`${x.place} · Google Maps`,'#ffb020',(x.radius_km>0?x.radius_km*1000:Math.max(500,(100-x.confidence)*1500))));
-  map.invalidateSize();
-  const best=exifPt||(confirmed[0]&&[Number(confirmed[0].lat),Number(confirmed[0].lng)]);if(best){map.flyTo(best,exifPt?14:(confirmed[0].radius_km>20?6:10));setTarget(best)}
-  else if(!exifPt)toast('Aucune position confirmée : aucun point n’a été placé sur la carte.');
-  renderChrono(j,best);
-  document.querySelectorAll('.cand').forEach(el=>el.onclick=()=>{const x=c[el.dataset.i];if(!mapSourceFor(x))return toast('Cette hypothèse n’est pas confirmée par Google Maps.');map.flyTo([Number(x.lat),Number(x.lng)],x.radius_km>20?6:10)});
+
 }
 
 /* ---------- Carte ---------- */
