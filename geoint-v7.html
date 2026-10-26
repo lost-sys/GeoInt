@@ -1290,7 +1290,7 @@ function renderChatMedia(){
      const img=document.createElement('img');img.src=item.url;img.alt='';img.loading='lazy';
      const label=document.createElement('span');label.textContent=item.title||kind;
      button.append(img,label);
-     button.onclick=()=>{setPendingChatImage({url:item.url,type:item.type||'image/gif',name:'klipy.gif',provider:'klipy',klipy:{id:item.id,q:query}});closeChatMedia()};
+     button.onclick=()=>{setPendingChatImage({url:item.url,type:item.type||'image/gif',name:'klipy.'+((item.type||'image/gif').split('/')[1]||'gif'),provider:'klipy',klipy:{id:item.id,q:query}});closeChatMedia()};
      grid.append(button);
    });
  }).catch(err=>{
