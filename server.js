@@ -12,6 +12,15 @@ const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_SECRET_KEY);
 
 // IA du mode économique : la clé reste côté serveur (Render), jamais dans le navigateur.
 const ECONOMIC_AI_API_KEY = process.env.ECONOMIC_AI_API_KEY || process.env.GEMINI_API_KEY || '';
+const KLIPY_API_KEY = process.env.KLIPY_API_KEY || '';
+const klipySearchCache = new Map();
+const klipyApiCallTimes = [];
+const reserveKlipyCall = () => {
+  const cutoff = Date.now() - 3600000;
+  while (klipyApiCallTimes.length && klipyApiCallTimes[0] < cutoff) klipyApiCallTimes.shift();
+  if (klipyApiCallTimes.length >= 90) throw E(429, 'Limite horaire de recherche atteinte. Réessaie plus tard.');
+  klipyApiCallTimes.push(Date.now());
+};
 const ECONOMIC_AI_MODEL = /^[a-zA-Z0-9._-]+$/.test(process.env.ECONOMIC_AI_MODEL || '')
   ? process.env.ECONOMIC_AI_MODEL
   : 'gemini-3.5-flash-lite';
@@ -185,6 +194,92 @@ const httpServer = http.createServer(async (req, res) => {
       return token(res, key);
     }
     const me = authUser(req); if (!me) throw E(401, 'Connexion requise');
+
+
+    /* ---- Recherche de GIFs KLIPY ---- */
+    if (p === '/api/klipy/search' && m === 'GET') {
+      if (!KLIPY_API_KEY) throw E(503, 'La recherche de GIFs n’est pas configurée sur le serveur.');
+      const query = String(u.searchParams.get('q') || '').trim();
+      const kind = String(u.searchParams.get('type') || 'gif');
+      if (!query || query.length > 100) throw E(400, 'Recherche invalide.');
+      if (kind !== 'gif' && kind !== 'sticker') throw E(400, 'Type de média invalide.');
+      const cacheKey = kind + '|' + query.toLocaleLowerCase('fr-FR');
+      const cached = klipySearchCache.get(cacheKey);
+      if (cached && cached.expiresAt > Date.now()) return J(res, 200, cached.payload);
+      reserveKlipyCall();
+      const params = new URLSearchParams({
+        key: KLIPY_API_KEY, q: query, country: 'FR',
+        contentfilter: 'high', media_filter: kind === 'sticker' ? 'tinygif_transparent,tinywebp_transparent,tinygif,gif' : 'tinygif,gif', limit: '24'
+      });
+      if (kind === 'sticker') params.set('searchfilter', 'sticker');
+      let upstream;
+      try {
+        upstream = await fetch('https://api.klipy.com/v2/search?' + params.toString(), {
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(12000)
+        });
+      } catch (err) {
+        console.error('KLIPY recherche inaccessible:', err.name || 'erreur réseau');
+        throw E(502, 'KLIPY est momentanément inaccessible.');
+      }
+      let result = {};
+      try { result = await upstream.json(); } catch {}
+      if (!upstream.ok) {
+        console.error('KLIPY recherche:', upstream.status);
+        throw E(502, upstream.status === 429 ? 'Limite de recherche KLIPY atteinte. Réessaie plus tard.' : 'La recherche KLIPY a échoué.');
+      }
+      const items = Array.isArray(result.results) ? result.results : [];
+      const results = items.slice(0, 24).flatMap(item => {
+        if (!item || item.type === 'ad') return [];
+        const formats = item.media_formats || item.media || {};
+        const candidates = kind === 'sticker'
+          ? [formats.tinygif_transparent, formats.tinywebp_transparent, formats.gif_transparent, formats.webp_transparent, formats.tinygif, formats.gif, formats.webp]
+          : [formats.tinygif, formats.gif, formats.mediumgif, formats.webp];
+        const asset = candidates.map(format => format && format.url).find(url => typeof url === 'string' && url);
+        const id = String(item.id || '');
+        if (!asset || !/^\d{5,30}$/.test(id)) return [];
+        let parsed;
+        try { parsed = new URL(asset); } catch { return []; }
+        if (parsed.protocol !== 'https:' || !(parsed.hostname === 'klipy.com' || parsed.hostname.endsWith('.klipy.com'))) return [];
+        const ext = parsed.pathname.toLowerCase().match(/\.(gif|webp|png|jpe?g)$/);
+        const suffix = ext ? ext[1].replace('jpg', 'jpeg') : 'gif';
+        return [{
+          id: id,
+          title: String(item.title || item.content_description || (kind === 'sticker' ? 'Autocollant' : 'GIF')).slice(0, 100),
+          url: asset,
+          type: 'image/' + suffix
+        }];
+      });
+      const payload = { results: results };
+      if (klipySearchCache.size > 250) klipySearchCache.delete(klipySearchCache.keys().next().value);
+      klipySearchCache.set(cacheKey, { expiresAt: Date.now() + 180000, payload: payload });
+      return J(res, 200, payload);
+    }
+    if (p === '/api/klipy/share' && m === 'POST') {
+      if (!KLIPY_API_KEY) throw E(503, 'Le suivi des GIFs n’est pas configuré sur le serveur.');
+      const id = String(B.id || '');
+      const query = String(B.q || '').trim();
+      if (!/^\d{5,30}$/.test(id) || !query || query.length > 100) throw E(400, 'Partage KLIPY invalide.');
+      reserveKlipyCall();
+      const params = new URLSearchParams({
+        key: KLIPY_API_KEY, id: id, q: query, country: 'FR', locale: 'fr_FR'
+      });
+      let upstream;
+      try {
+        upstream = await fetch('https://api.klipy.com/v2/registershare?' + params.toString(), {
+          headers: { 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(8000)
+        });
+      } catch (err) {
+        console.error('KLIPY suivi inaccessible:', err.name || 'erreur réseau');
+        throw E(502, 'Le suivi KLIPY est momentanément inaccessible.');
+      }
+      if (!upstream.ok) {
+        console.error('KLIPY suivi:', upstream.status);
+        throw E(502, 'Le suivi KLIPY a échoué.');
+      }
+      return J(res, 200, { ok: true });
+    }
 
     /* ---- IA économique : Gemini côté serveur ---- */
     if (p === '/api/ai/economic' && m === 'POST') {
@@ -393,7 +488,7 @@ const httpServer = http.createServer(async (req, res) => {
         return J(res,200,DB.chat[roomId].slice(-300).map(x=>{const msg={...x,roles:(x.roles||[]).map(roleView),timeoutUntil:Number(DB.users[x.key]?.timeoutUntil)||0};if(msg.attachment)msg.attachment={name:msg.attachment.name,type:msg.attachment.type};return msg}));
       }
       if(cr && cr[3]==='attachment' && m==='GET') {
-        const msg=DB.chat[roomId].find(x=>x.id===cr[2]);if(!msg?.attachment?.data)throw E(404,'Image introuvable');return J(res,200,{data:msg.attachment.data});
+        const msg=DB.chat[roomId].find(x=>x.id===cr[2]);if(!msg?.attachment?.data&&!msg?.attachment?.url)throw E(404,'Image introuvable');return J(res,200,{data:msg.attachment.data||null,url:msg.attachment.url||null});
       }
       if(croot && m==='POST') {
         if(channel.readonly && !hasPerm(me,'post_announcements')) throw E(403,'Ce salon est en lecture seule');
@@ -403,11 +498,21 @@ const httpServer = http.createServer(async (req, res) => {
         if(!rawText&&!inputAttachment) throw E(400,'Message vide');
         let attachment=null;
         if(inputAttachment){
-          const data=String(inputAttachment.data||'');
-          if(data.length>900000)throw E(413,'Image trop volumineuse (650 Ko maximum).');
-          const match=data.match(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/);
-          if(!match)throw E(400,'Type d’image non pris en charge.');
-          const type='image/'+match[1];attachment={data,type,name:type==='image/gif'?'image.gif':'image.'+match[1]};
+          if(inputAttachment.url){
+            const asset=String(inputAttachment.url);
+            let parsed;
+            try { parsed=new URL(asset); } catch { throw E(400,'Lien média invalide.'); }
+            if(parsed.protocol!=='https:' || !(parsed.hostname==='klipy.com' || parsed.hostname.endsWith('.klipy.com')) || String(inputAttachment.provider||'')!=='klipy') throw E(400,'Lien média non autorisé.');
+            const type=String(inputAttachment.type||'image/gif');
+            if(!/^image\/(gif|webp|png|jpeg)$/.test(type))throw E(400,'Type de média non pris en charge.');
+            attachment={url:asset,provider:'klipy',type:type,name:'klipy.'+type.split('/')[1]};
+          }else{
+            const data=String(inputAttachment.data||'');
+            if(data.length>900000)throw E(413,'Image trop volumineuse (650 Ko maximum).');
+            const match=data.match(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/);
+            if(!match)throw E(400,'Type d’image non pris en charge.');
+            const type='image/'+match[1];attachment={data,type,name:type==='image/gif'?'image.gif':'image.'+match[1]};
+          }
         }
         const violation=rawText?detectModerationViolation(rawText):null;
         if(violation && me.key!=='lost' && !hasPerm(me,'moderate_chat')) await applyAutoModeration(me,rawText,roomId,violation);
@@ -415,7 +520,7 @@ const httpServer = http.createServer(async (req, res) => {
         const now=Date.now(), antiKey=me.key+'|'+roomId, recent=chatAntiSpam.get(antiKey)||{times:[],lastAt:0,lastText:''};
         recent.times=recent.times.filter(ts=>now-ts<10000);
         if(now-recent.lastAt<1500) throw E(429,'Anti-spam : attends une seconde avant de renvoyer un message.');
-        const spamText=text.toLowerCase()||(attachment?'image:'+crypto.createHash('sha256').update(attachment.data).digest('hex'):'');
+        const spamText=text.toLowerCase()||(attachment?'image:'+crypto.createHash('sha256').update(attachment.data||attachment.url).digest('hex'):'');
         if(recent.lastText===spamText&&now-recent.lastAt<15000) throw E(429,'Anti-spam : tu viens déjà d’envoyer ce message.');
         if(recent.times.length>=5) throw E(429,'Anti-spam : maximum 5 messages en 10 secondes. Réessaie dans quelques instants.');
         recent.times.push(now); recent.lastAt=now; recent.lastText=spamText; chatAntiSpam.set(antiKey,recent);
