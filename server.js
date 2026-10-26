@@ -201,7 +201,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (cached && cached.expiresAt > Date.now()) return J(res, 200, cached.payload);
       const params = new URLSearchParams({
         key: KLIPY_API_KEY, q: query, country: 'FR', locale: 'fr_FR',
-        contentfilter: 'high', media_filter: 'gif,tinygif', limit: '24'
+        contentfilter: 'high', media_filter: kind === 'sticker' ? 'tinygif_transparent,tinywebp_transparent,tinygif,gif' : 'tinygif,gif', limit: '24'
       });
       if (kind === 'sticker') params.set('searchfilter', 'sticker');
       let upstream;
@@ -225,7 +225,7 @@ const httpServer = http.createServer(async (req, res) => {
         if (!item || item.type === 'ad') return [];
         const formats = item.media_formats || item.media || {};
         const candidates = kind === 'sticker'
-          ? [formats.tinygif_transparent, formats.gif_transparent, formats.tinygif, formats.gif, formats.webp_transparent, formats.webp]
+          ? [formats.tinygif_transparent, formats.tinywebp_transparent, formats.gif_transparent, formats.webp_transparent, formats.tinygif, formats.gif, formats.webp]
           : [formats.tinygif, formats.gif, formats.mediumgif, formats.webp];
         const asset = candidates.map(format => format && format.url).find(url => typeof url === 'string' && url);
         const id = String(item.id || '');
