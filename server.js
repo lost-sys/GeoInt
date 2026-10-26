@@ -375,7 +375,7 @@ const httpServer = http.createServer(async (req, res) => {
       if (m === 'DELETE') { DB.records = DB.records.filter(x => x !== rec); log(me.name, 'suppression', rec); await save(); return J(res, 200, { ok: true }); }
     }
     /* ---- chat ---- */
-    let cr=p.match(/^\/api\/chat\/([^/]+)(?:\/([^/]+))(?:\/(reaction))?$/);
+    let cr=p.match(/^\/api\/chat\/([^/]+)(?:\/([^/]+))(?:\/(reaction|attachment))?$/);
     let croot=p.match(/^\/api\/chat\/([^/]+)$/);
     if(croot || cr){
       const roomId=decodeURIComponent((croot||cr)[1]);
@@ -390,24 +390,37 @@ const httpServer = http.createServer(async (req, res) => {
         return J(res,200,{ok:true,deleted,roomId});
       }
       if(croot && m==='GET') {
-        return J(res,200,DB.chat[roomId].slice(-300).map(x=>({...x,roles:(x.roles||[]).map(roleView),timeoutUntil:Number(DB.users[x.key]?.timeoutUntil)||0})));
+        return J(res,200,DB.chat[roomId].slice(-300).map(x=>{const msg={...x,roles:(x.roles||[]).map(roleView),timeoutUntil:Number(DB.users[x.key]?.timeoutUntil)||0};if(msg.attachment)msg.attachment={name:msg.attachment.name,type:msg.attachment.type};return msg}));
+      }
+      if(cr && cr[3]==='attachment' && m==='GET') {
+        const msg=DB.chat[roomId].find(x=>x.id===cr[2]);if(!msg?.attachment?.data)throw E(404,'Image introuvable');return J(res,200,{data:msg.attachment.data});
       }
       if(croot && m==='POST') {
         if(channel.readonly && !hasPerm(me,'post_announcements')) throw E(403,'Ce salon est en lecture seule');
         if(DB.users[me.key]?.timeoutUntil>Date.now()) throw E(403,'Tu es temporairement limité.');
         const rawText=String(B.text||'').trim().slice(0,2000);
-        if(!rawText) throw E(400,'Message vide');
-        const violation=detectModerationViolation(rawText);
+        const inputAttachment=B.attachment&&typeof B.attachment==='object'?B.attachment:null;
+        if(!rawText&&!inputAttachment) throw E(400,'Message vide');
+        let attachment=null;
+        if(inputAttachment){
+          const data=String(inputAttachment.data||'');
+          if(data.length>900000)throw E(413,'Image trop volumineuse (650 Ko maximum).');
+          const match=data.match(/^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/]+={0,2}$/);
+          if(!match)throw E(400,'Type d’image non pris en charge.');
+          const type='image/'+match[1];attachment={data,type,name:type==='image/gif'?'image.gif':'image.'+match[1]};
+        }
+        const violation=rawText?detectModerationViolation(rawText):null;
         if(violation && me.key!=='lost' && !hasPerm(me,'moderate_chat')) await applyAutoModeration(me,rawText,roomId,violation);
         const text=filterProfanity(rawText).slice(0,2000);
         const now=Date.now(), antiKey=me.key+'|'+roomId, recent=chatAntiSpam.get(antiKey)||{times:[],lastAt:0,lastText:''};
         recent.times=recent.times.filter(ts=>now-ts<10000);
         if(now-recent.lastAt<1500) throw E(429,'Anti-spam : attends une seconde avant de renvoyer un message.');
-        if(recent.lastText===text.toLowerCase()&&now-recent.lastAt<15000) throw E(429,'Anti-spam : tu viens déjà d’envoyer ce message.');
+        const spamText=text.toLowerCase()||(attachment?'image:'+crypto.createHash('sha256').update(attachment.data).digest('hex'):'');
+        if(recent.lastText===spamText&&now-recent.lastAt<15000) throw E(429,'Anti-spam : tu viens déjà d’envoyer ce message.');
         if(recent.times.length>=5) throw E(429,'Anti-spam : maximum 5 messages en 10 secondes. Réessaie dans quelques instants.');
-        recent.times.push(now); recent.lastAt=now; recent.lastText=text.toLowerCase(); chatAntiSpam.set(antiKey,recent);
+        recent.times.push(now); recent.lastAt=now; recent.lastText=spamText; chatAntiSpam.set(antiKey,recent);
         if(chatAntiSpam.size>5000){for(const [k,v] of chatAntiSpam)if(!v.times.some(ts=>now-ts<10000))chatAntiSpam.delete(k);}
-        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,ts:Date.now(),pinned:false,reactions:{}};
+        const msg={id:crypto.randomUUID(),key:me.key,u:me.name,avatar:DB.users[me.key]?.avatar||'',premium:!!DB.users[me.key]?.premium,nameGradient:DB.users[me.key]?.nameGradient||'none',admin:me.admin,roles:me.roles.map(roleView),text,attachment,ts:Date.now(),pinned:false,reactions:{}};
         DB.chat[roomId].push(msg); DB.chat[roomId]=DB.chat[roomId].slice(-500);
         save().catch(e=>console.error('Sauvegarde message chat:',e)); return J(res,200,msg);
       }
