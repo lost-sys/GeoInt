@@ -1105,9 +1105,11 @@ function show(j){
 /* ---------- Carte ---------- */
 function initMap(){
   if(map)return;
-  map=L.map('map',{worldCopyJump:true}).setView([30,10],2);
-  const esri=(p,n)=>L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${p}/MapServer/tile/{z}/{y}/{x}`,{attribution:'Tiles  Esri',maxZoom:n});
-  const labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19});
+  const worldBounds=L.latLngBounds([[-85.05112878,-180],[85.05112878,180]]);
+  map=L.map('map',{worldCopyJump:false,maxBounds:worldBounds,maxBoundsViscosity:1,minZoom:2}).setView([30,10],2);
+  const tileBounds={minZoom:2,noWrap:true,bounds:worldBounds};
+  const esri=(p,n)=>L.tileLayer(`https://server.arcgisonline.com/ArcGIS/rest/services/${p}/MapServer/tile/{z}/{y}/{x}`,{attribution:'Tiles  Esri',maxZoom:n,...tileBounds});
+  const labels=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,...tileBounds});
   const base={' Plan':esri('World_Street_Map',19),' Satellite':esri('World_Imagery',19),' Hybride':L.layerGroup([esri('World_Imagery',19),labels]),' Sombre':esri('Canvas/World_Dark_Gray_Base',16)};
   let warned=false;Object.values(base).forEach(l=>l.on&&l.on('tileerror',()=>{if(!warned){warned=true;toast('Fond indisponible : choisissez-en un autre')}}));
   base[' Hybride'].addTo(map);L.control.layers(base,null,{position:'topright',collapsed:false}).addTo(map);
@@ -1439,7 +1441,7 @@ function mapSnap(){initMap();const ll=l=>[l.getLatLng().lat,l.getLatLng().lng];
   return{pins:pins.getLayers().filter(l=>l.feature).map(l=>({ll:ll(l),label:l.feature.properties.label,color:l.feature.properties.color,ring:l._ring?l._ring.getRadius():0})),wps,mode:$('#mode').value,col:$('#pinColor').value,
     vp:vpM&&lkM&&lastV?{a:ll(vpM),k:ll(lkM),subject:lastV.subject,radius_m:lastV.radius_m,surface:lastV.surface}:null,view:{c:[map.getCenter().lat,map.getCenter().lng],z:map.getZoom()}}}
 function mapLoad(d){initMap();pins.clearLayers();(d.pins||[]).forEach(p=>addPin(p.ll,p.label,p.color,p.ring||0));wps=d.wps||[];if(d.mode)$('#mode').value=d.mode;if(d.col)$('#pinColor').value=d.col;drawRoute();
-  if(d.vp)drawView({lat:d.vp.a[0],lng:d.vp.a[1],look_lat:d.vp.k[0],look_lng:d.vp.k[1],subject:d.vp.subject,radius_m:d.vp.radius_m,surface:d.vp.surface});if(d.view)map.setView(d.view.c,d.view.z)}
+  if(d.vp)drawView({lat:d.vp.a[0],lng:d.vp.a[1],look_lat:d.vp.k[0],look_lng:d.vp.k[1],subject:d.vp.subject,radius_m:d.vp.radius_m,surface:d.vp.surface});if(d.view&&Array.isArray(d.view.c)&&d.view.c.length===2&&d.view.c.every(Number.isFinite)){const savedZoom=Number(d.view.z),zoom=Number.isFinite(savedZoom)?Math.max(map.getMinZoom(),Math.min(map.getMaxZoom(),savedZoom)):2;map.setView(d.view.c,zoom)}}
 async function saveImageRecord(){
   if(!sessionToken){openAuth('login');return} if(!file)return toast('Aucune image');
   const r=await askPw({save:true,label:'Enregistrer l’analyse image'}); if(!r)return;
