@@ -303,6 +303,7 @@ const httpServer = http.createServer(async (req, res) => {
         throw E(400, 'Partie de requête IA invalide');
       });
       const payload = { contents: [{ role: 'user', parts }] };
+      if (B.maps === true) payload.tools = [{ googleMaps: {} }];
       if (B.schema && typeof B.schema === 'object' && !Array.isArray(B.schema)) {
         payload.generationConfig = { responseMimeType: 'application/json', responseSchema: B.schema };
       }
@@ -335,7 +336,12 @@ const httpServer = http.createServer(async (req, res) => {
         .map(part => typeof part.text === 'string' ? part.text : '')
         .join('');
       if (!text) throw E(502, 'Gemini a renvoyé une réponse vide. Réessaie.');
-      return J(res, 200, { ok: true, text, model: ECONOMIC_AI_MODEL });
+      const mapsSources = (result.candidates?.[0]?.groundingMetadata?.groundingChunks || [])
+        .flatMap(chunk => chunk?.maps?.uri && chunk?.maps?.title
+          ? [{ title: String(chunk.maps.title).slice(0, 160), uri: String(chunk.maps.uri).slice(0, 1000) }]
+          : [])
+        .slice(0, 12);
+      return J(res, 200, { ok: true, text, model: ECONOMIC_AI_MODEL, mapsSources });
     }
     if (p === '/api/me') return J(res, 200, { name:me.name, admin:me.admin, premium:!!DB.users[me.key]?.premium, nameGradient:DB.users[me.key]?.nameGradient||'none', roles:me.roles.map(roleView), permissions:[...new Set(me.permissions)], avatar:DB.users[me.key]?.avatar||'', bio:DB.users[me.key]?.bio||'', timeoutUntil:Number(DB.users[me.key]?.timeoutUntil)||0 });
     if (p === '/api/me/profile' && m === 'PATCH') {
