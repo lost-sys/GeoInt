@@ -14,6 +14,13 @@ const USE_SUPABASE = !!(SUPABASE_URL && SUPABASE_SECRET_KEY);
 const ECONOMIC_AI_API_KEY = process.env.ECONOMIC_AI_API_KEY || process.env.GEMINI_API_KEY || '';
 const KLIPY_API_KEY = process.env.KLIPY_API_KEY || '';
 const klipySearchCache = new Map();
+const klipyApiCallTimes = [];
+const reserveKlipyCall = () => {
+  const cutoff = Date.now() - 3600000;
+  while (klipyApiCallTimes.length && klipyApiCallTimes[0] < cutoff) klipyApiCallTimes.shift();
+  if (klipyApiCallTimes.length >= 90) throw E(429, 'Limite horaire de recherche atteinte. Réessaie plus tard.');
+  klipyApiCallTimes.push(Date.now());
+};
 const ECONOMIC_AI_MODEL = /^[a-zA-Z0-9._-]+$/.test(process.env.ECONOMIC_AI_MODEL || '')
   ? process.env.ECONOMIC_AI_MODEL
   : 'gemini-3.5-flash-lite';
@@ -199,8 +206,9 @@ const httpServer = http.createServer(async (req, res) => {
       const cacheKey = kind + '|' + query.toLocaleLowerCase('fr-FR');
       const cached = klipySearchCache.get(cacheKey);
       if (cached && cached.expiresAt > Date.now()) return J(res, 200, cached.payload);
+      reserveKlipyCall();
       const params = new URLSearchParams({
-        key: KLIPY_API_KEY, q: query, country: 'FR', locale: 'fr_FR',
+        key: KLIPY_API_KEY, q: query, country: 'FR',
         contentfilter: 'high', media_filter: kind === 'sticker' ? 'tinygif_transparent,tinywebp_transparent,tinygif,gif' : 'tinygif,gif', limit: '24'
       });
       if (kind === 'sticker') params.set('searchfilter', 'sticker');
@@ -252,6 +260,7 @@ const httpServer = http.createServer(async (req, res) => {
       const id = String(B.id || '');
       const query = String(B.q || '').trim();
       if (!/^\d{5,30}$/.test(id) || !query || query.length > 100) throw E(400, 'Partage KLIPY invalide.');
+      reserveKlipyCall();
       const params = new URLSearchParams({
         key: KLIPY_API_KEY, id: id, q: query, country: 'FR', locale: 'fr_FR'
       });
