@@ -461,6 +461,8 @@ dialog{position:relative}
 .chatMediaTile.sticker img{height:94px;object-fit:contain;background:transparent}
 .chatMediaTile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:#c5c7d0}
 .chatMediaEmoji{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:3px;overflow:auto}
+.chatMediaGrid.emojiMode{display:block}
+.chatMediaEmoji{width:100%;min-height:100%;place-items:start center}
 .chatMediaEmoji button{min-width:0;padding:5px 0;font-size:22px;line-height:1.15;border:0;background:transparent}
 .chatMediaEmoji button:hover{background:#343742;border-radius:7px}
 @media(max-width:700px){#t-chat .chatToolBtn{flex-basis:36px;width:36px;height:40px}.chatMediaPicker{width:calc(100vw - 16px);height:min(360px,65dvh);left:8px!important}.chatMediaGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.chatMediaEmoji{grid-template-columns:repeat(8,minmax(0,1fr))}#t-chat .chatComposer{gap:5px!important;padding:8px!important}#t-chat #chatSend{min-height:40px;padding:0 9px}}
@@ -1265,6 +1267,7 @@ let chatMediaTab='gif';
 const chatMediaPicker=$('#chatMediaPicker');
 function renderChatMedia(){
  const q=$('#chatMediaSearch').value.trim().toLowerCase(),grid=$('#chatMediaGrid');
+ grid.classList.toggle('emojiMode',chatMediaTab==='emoji');
  document.querySelectorAll('[data-media-tab]').forEach(b=>{const on=b.dataset.mediaTab===chatMediaTab;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on))});
  if(chatMediaTab==='emoji'){
    const found=CHAT_EMOJIS.filter(([e,label])=>!q||(e+' '+label).toLowerCase().includes(q));
