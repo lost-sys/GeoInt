@@ -310,22 +310,27 @@ const httpServer = http.createServer(async (req, res) => {
       if (B.schema && typeof B.schema === 'object' && !Array.isArray(B.schema)) {
         payload.generationConfig = { responseMimeType: 'application/json', responseSchema: B.schema };
       }
-      let upstream;
-      try {
-        upstream = await fetch(
-          'https://generativelanguage.googleapis.com/v1beta/models/' + ECONOMIC_AI_MODEL + ':generateContent',
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': ECONOMIC_AI_API_KEY },
-            body: JSON.stringify(payload),
-            signal: AbortSignal.timeout(60000)
-          }
-        );
-      } catch (err) {
-        console.error('IA économique inaccessible:', err.name || 'erreur réseau');
-        throw E(502, 'Service IA économique inaccessible. Réessaie dans un instant.');
+      let upstream, result = {};
+      const retryableStatuses = new Set([500, 502, 503, 504]);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          upstream = await fetch(
+            'https://generativelanguage.googleapis.com/v1beta/models/' + ECONOMIC_AI_MODEL + ':generateContent',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-goog-api-key': ECONOMIC_AI_API_KEY },
+              body: JSON.stringify(payload),
+              signal: AbortSignal.timeout(60000)
+            }
+          );
+        } catch (err) {
+          console.error('IA économique inaccessible:', err.name || 'erreur réseau');
+          throw E(502, 'Service IA économique inaccessible. Réessaie dans un instant.');
+        }
+        if (!retryableStatuses.has(upstream.status) || attempt === 1) break;
+        console.warn('IA économique: erreur temporaire ' + upstream.status + ', nouvelle tentative.');
+        await new Promise(resolve => setTimeout(resolve, 1200));
       }
-      let result = {};
       try { result = await upstream.json(); } catch {}
       if (!upstream.ok) {
         const detail = String(result.error?.message || '').slice(0, 240);
@@ -333,6 +338,7 @@ const httpServer = http.createServer(async (req, res) => {
         if (upstream.status === 400) throw E(502, 'Requête refusée par Gemini : vérifie le modèle et le format envoyé.');
         if (upstream.status === 401 || upstream.status === 403) throw E(502, 'Clé Gemini invalide ou accès API non autorisé. Vérifie ECONOMIC_AI_API_KEY sur Render.');
         if (upstream.status === 429) throw E(503, 'Quota Gemini atteint. Réessaie plus tard.');
+        if (retryableStatuses.has(upstream.status)) throw E(503, 'Gemini est temporairement indisponible ou surchargé. Réessaie dans quelques instants.');
         throw E(502, 'Gemini a renvoyé une erreur (' + upstream.status + ').');
       }
       const text = (result.candidates?.[0]?.content?.parts || [])
