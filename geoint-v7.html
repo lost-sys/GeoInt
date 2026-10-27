@@ -1411,26 +1411,30 @@ function openAuth(mode='login'){
 function savedAccounts(){try{return JSON.parse(localStorage.getItem('geoint_accounts')||'[]')}catch{return[]}}
 function rememberAccount(j){let a=savedAccounts().filter(x=>x.name!==j.name);a.unshift({name:j.name,token:j.token,admin:!!j.admin,roles:j.roles||[]});localStorage.setItem('geoint_accounts',JSON.stringify(a.slice(0,3)))}
 function forgetAccount(name){localStorage.setItem('geoint_accounts',JSON.stringify(savedAccounts().filter(x=>x.name!==name)))}
+const revokeAccountSession=token=>token?fetch('/api/logout',{method:'POST',headers:{Authorization:'Bearer '+token}}).catch(()=>{}):Promise.resolve();
+function activeSavedAccountNames(){const names=new Set(savedAccounts().map(a=>String(a.name||'').toLowerCase()));if(sessionToken&&getUser())names.add(getUser().toLowerCase());return names}
 function switchToAccount(a){sessionToken=a.token;localStorage.setItem('geoint_token',a.token);localStorage.setItem('geoint_user',a.name);localStorage.setItem('geoint_admin',a.admin?'1':'0');myRoles=a.roles||[];myPermissions=myRoles.flatMap(r=>r.permissions||[]);validateSession();refreshUser();$('#authDlg').close();renderRec();loadChat();toast('Compte '+a.name+' sélectionné');refreshChannels()}
-function renderSavedAccounts(){const box=$('#accountList');if(!box)return;const a=savedAccounts();box.innerHTML=a.length?a.map(x=>`<div class="userRow" style="display:flex;gap:8px;align-items:center"><button class="pri" data-switch="${esc(x.name)}" style="flex:1;text-align:left"> ${esc(x.name)}${x.name===getUser()?' · actuel':''}</button><button data-forget="${esc(x.name)}" title="Oublier ce compte">×</button></div>`).join(''):'<span style="color:var(--mut)">Aucun compte mémorisé.</span>';box.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{const a=savedAccounts().find(x=>x.name===b.dataset.switch);if(a)switchToAccount(a)});box.querySelectorAll('[data-forget]').forEach(b=>b.onclick=()=>{forgetAccount(b.dataset.forget);renderSavedAccounts()})}
+function renderSavedAccounts(){const box=$('#accountList');if(!box)return;const a=savedAccounts();box.innerHTML=a.length?a.map(x=>`<div class="userRow" style="display:flex;gap:8px;align-items:center"><button class="pri" data-switch="${esc(x.name)}" style="flex:1;text-align:left"> ${esc(x.name)}${x.name===getUser()?' · actuel':''}</button><button data-forget="${esc(x.name)}" title="Oublier ce compte">×</button></div>`).join(''):'<span style="color:var(--mut)">Aucun compte mémorisé.</span>';box.querySelectorAll('[data-switch]').forEach(b=>b.onclick=()=>{const a=savedAccounts().find(x=>x.name===b.dataset.switch);if(a)switchToAccount(a)});box.querySelectorAll('[data-forget]').forEach(b=>b.onclick=async()=>{const name=b.dataset.forget;if(name===getUser()){await doLogout()}else{const saved=savedAccounts().find(a=>a.name===name);await revokeAccountSession(saved?.token);forgetAccount(name);renderSavedAccounts()}})}
 function openAccountMenu(){
   const d=$('#authDlg');
   $('#authTitle').textContent='Mon compte';
   $('#authForm').style.display='none';
   $('#accountMenu').style.display='block';
-  $('#accountMenuText').textContent='Connecté en tant que '+(getUser()||'Utilisateur')+'.'; renderSavedAccounts();
+  $('#accountMenuText').textContent='Connecté en tant que '+(getUser()||'Utilisateur')+'. Jusqu’à 3 comptes peuvent rester mémorisés sur cet appareil.'; renderSavedAccounts();
   d.showModal();
 }
 $('#loginTab').onclick=()=>openAuth('login');$('#newLoginBtn').onclick=()=>openAuth('login');$('#registerTab').onclick=()=>openAuth('register');
 $('#authPseudo').oninput=()=>{if(authMode==='register')$('#adminCodeRow').style.display=$('#authPseudo').value.trim().toLowerCase()==='lost'?'grid':'none'};
 $('#authClose').onclick=()=>$('#authDlg').close();
-const doLogout=()=>{api('/api/logout',{method:'POST',body:'{}'}).catch(()=>{});const old=getUser();sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');if(old)forgetAccount(old);myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
+const doLogout=async()=>{const old=getUser(),token=sessionToken;await revokeAccountSession(token);sessionToken='';localStorage.removeItem('geoint_token');localStorage.removeItem('geoint_user');localStorage.removeItem('geoint_admin');if(old)forgetAccount(old);myRoles=[];myPermissions=[];$('#manageTab').style.display='none';refreshUser();$('#authDlg').close();renderRec();toast('Déconnexion réussie')};
 $('#logoutBtn').onclick=doLogout;
 $('#menuLogoutBtn').onclick=doLogout;
-$('#changeAccountBtn').onclick=()=>{renderSavedAccounts();$('#authTitle').textContent='Changer de compte';$('#authForm').style.display='none';$('#accountMenu').style.display='block';$('#accountMenuText').textContent='Choisis un compte mémorisé ou utilise le bouton Connexion pour un autre compte.';$('#authDlg').showModal()};
+$('#changeAccountBtn').onclick=()=>{renderSavedAccounts();$('#authTitle').textContent='Changer de compte';$('#authForm').style.display='none';$('#accountMenu').style.display='block';$('#accountMenuText').textContent='Choisis un compte mémorisé. Maximum 3 comptes connectés simultanément sur cet appareil ; oublie un compte pour en ajouter un autre.';$('#authDlg').showModal()};
 $('#authOk').onclick=async()=>{
   const pseudo=$('#authPseudo').value.trim(),password=$('#authPassword').value;
   $('#authNote').style.display='none';
+  const activeNames=activeSavedAccountNames();
+  if(!activeNames.has(pseudo.toLowerCase())&&activeNames.size>=3){$('#authNote').textContent='Maximum 3 comptes connectés simultanément sur cet appareil. Oublie ou déconnecte un compte avant d’en ajouter un autre.';$('#authNote').style.display='block';return}
   try{
     if(authMode==='register'){
       const password2=$('#authPassword2').value;
