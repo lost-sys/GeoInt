@@ -687,17 +687,20 @@ dialog{position:relative}
 </dialog>
 
 <dialog id="dlg" style="max-height:90vh;overflow:auto"><form method="dialog"><h3>IA & clés API</h3>
-  <p style="font-size:12px;color:var(--mut);margin:0 0 8px">Les IA sont essayées dans cet ordre : Gemini → OpenAI → Groq → OpenRouter → perso. En <b>mode économique</b>, GeoInt utilise l'IA économique du serveur : aucune clé API n'est demandée à l'utilisateur.</p>
+  <p style="font-size:12px;color:var(--mut);margin:0 0 8px">Les IA sont essayées dans cet ordre : Gemini → Claude → OpenAI → Groq → OpenRouter → perso. En <b>mode économique</b>, GeoInt utilise l'IA économique du serveur : aucune clé API n'est demandée à l'utilisateur.</p>
   <h3 style="margin-top:10px">1 · Gemini <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
   <input id="keyIn" type="password" placeholder="Clé API Gemini" style="width:100%" autocomplete="off"><input id="modelIn" placeholder="Modèle (vide : automatique)" style="width:100%;margin-top:6px" class="mono">
-  <h3 style="margin-top:12px">2 · OpenAI <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--acc)">créer une clé API</a></h3>
+  <h3 style="margin-top:12px">2 · Claude <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener" style="color:var(--acc)">créer une clé API</a></h3>
+  <input id="claudeKey" type="password" placeholder="Clé API Claude" style="width:100%" autocomplete="off"><input id="claudeModel" placeholder="Modèle (vide : claude-haiku-5-5)" style="width:100%;margin-top:6px" class="mono">
+  <p style="font-size:11px;color:var(--mut);margin:4px 0">Anthropic peut offrir quelques crédits de test aux nouveaux comptes ; l’API nécessite ensuite des crédits payants. La clé reste dans ce navigateur.</p>
+  <h3 style="margin-top:12px">3 · OpenAI <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener" style="color:var(--acc)">créer une clé API</a></h3>
   <input id="openaiKey" type="password" placeholder="Clé API OpenAI (sk-…)" style="width:100%" autocomplete="off"><input id="openaiModel" placeholder="Modèle (vide : gpt-4.1-mini)" style="width:100%;margin-top:6px" class="mono">
   <p style="font-size:11px;color:var(--mut);margin:4px 0">La clé API OpenAI est distincte d’un abonnement ChatGPT. Chaque utilisateur configure sa clé dans son navigateur.</p>
-  <h3 style="margin-top:12px">3 · Groq (gratuit) <a href="https://console.groq.com/keys" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
+  <h3 style="margin-top:12px">4 · Groq (gratuit) <a href="https://console.groq.com/keys" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
   <input id="grKey" type="password" placeholder="Clé API Groq (gsk_…)" style="width:100%" autocomplete="off"><input id="grModel" placeholder="Modèle (vide : qwen/qwen3.8-27b)" style="width:100%;margin-top:6px" class="mono">
-  <h3 style="margin-top:12px">4 · OpenRouter (modèles :free) <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
+  <h3 style="margin-top:12px">5 · OpenRouter (modèles :free) <a href="https://openrouter.ai/keys" target="_blank" rel="noopener" style="color:var(--acc)">obtenir une clé</a></h3>
   <input id="orKey" type="password" placeholder="Clé API OpenRouter (sk-or-…)" style="width:100%" autocomplete="off"><input id="orModel" placeholder="Modèle (vide : openrouter/free)" style="width:100%;margin-top:6px" class="mono">
-  <h3 style="margin-top:12px">5 · Autres IA compatibles OpenAI (jusqu'à 3)</h3><div id="cuBox"></div>
+  <h3 style="margin-top:12px">6 · Autres IA compatibles OpenAI (jusqu'à 3)</h3><div id="cuBox"></div>
   <label style="display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px"><input type="checkbox" id="ecoIn"> Mode économique : 1 seul appel, image réduite, sans vérification web</label>
   <p style="color:var(--mut);font-size:12px">Clés stockées uniquement dans le localStorage de ce navigateur. Ne les écris jamais en dur dans le fichier.</p>
   <div class="bar2"><button value="ok" class="pri" id="keySave">Enregistrer</button><button value="x">Fermer</button></div></form></dialog>
@@ -891,19 +894,20 @@ $('#cuBox').innerHTML=[0,1,2].map(i=>`<div style="border:1px solid var(--line);b
 [0,1,2].forEach(i=>$('#cuP'+i).onchange=e=>{const p=PRESETS[e.target.value];if(p){$('#cuL'+i).value=p[0];$('#cuU'+i).value=p[1];$('#cuM'+i).value=p[2]}});
 const providers=()=>{const c=CFG(),L=[],u=a=>[...new Set(a.filter(Boolean))];
   if(getKey())L.push({id:'gemini',name:'Gemini'});
+  if(c.claude?.key)L.push({id:'claude',name:'Claude',key:c.claude.key,models:u([c.claude.model,'claude-haiku-5-5'])});
   if(c.openai?.key)L.push({id:'openai',name:'OpenAI',url:'https://api.openai.com/v1/chat/completions',key:c.openai.key,models:u([c.openai.model,'gpt-4.1-mini'])});
   if(c.groq?.key)L.push({id:'groq',name:'Groq',url:'https://api.groq.com/openai/v1/chat/completions',key:c.groq.key,models:u([c.groq.model,'qwen/qwen3.8-27b'])});
-  if(c.openrouter?.key)L.push({id:'openrouter',name:'OpenRouter',url:'https://openrouter.ai/api/v1/chat/completions',key:c.openrouter.key,models:u([c.openrouter.model,'openrouter/free','qwen/qwen3.8-27b:free','google/gemma-4-31b-it:free'])});
+  if(c.openrouter?.key)L.push({id:'openrouter',name:'OpenRouter',url:'https://openrouter.ai/api/v1/chat/completions',key:c.openrouter.key,models:u([c.openrouter.model,'openrouter/free','nvidia/nemotron-3.5-super-vl:free'])});
   [].concat(c.custom||[]).forEach((x,i)=>{if(x&&x.url&&x.model)L.push({id:'custom'+i,name:x.label||'IA perso '+(i+1),url:x.url,key:x.key,models:[x.model]})});
   return L};
 const refreshKey=()=>{const eco=localStorage.getItem('gemini_eco')==='1';$('#keyBtn').style.borderColor=eco?'var(--ok)':(providers().length?'var(--ok)':'var(--bad)');$('#keyBtn').title=eco?'Mode économique · IA serveur · aucune clé utilisateur':(providers().map(p=>p.name).join(' → ')||'Aucune IA configurée')};
-$('#keyBtn').onclick=()=>{const c=CFG(),f=(id,v)=>$(id).value=v||'',cu=[].concat(c.custom||[]);f('#keyIn',getKey());f('#modelIn',localStorage.getItem('gemini_model'));f('#openaiKey',c.openai?.key);f('#openaiModel',c.openai?.model);f('#grKey',c.groq?.key);f('#grModel',c.groq?.model);f('#orKey',c.openrouter?.key);f('#orModel',c.openrouter?.model);
+$('#keyBtn').onclick=()=>{const c=CFG(),f=(id,v)=>$(id).value=v||'',cu=[].concat(c.custom||[]);f('#keyIn',getKey());f('#modelIn',localStorage.getItem('gemini_model'));f('#claudeKey',c.claude?.key);f('#claudeModel',c.claude?.model);f('#openaiKey',c.openai?.key);f('#openaiModel',c.openai?.model);f('#grKey',c.groq?.key);f('#grModel',c.groq?.model);f('#orKey',c.openrouter?.key);f('#orModel',c.openrouter?.model);
   [0,1,2].forEach(i=>{f('#cuP'+i,'');f('#cuL'+i,cu[i]?.label);f('#cuU'+i,cu[i]?.url);f('#cuK'+i,cu[i]?.key);f('#cuM'+i,cu[i]?.model)});$('#ecoIn').checked=localStorage.getItem('gemini_eco')==='1';$('#dlg').showModal()};
 $('#keySave').onclick=()=>{const v=id=>$(id).value.trim(),mo=v('#modelIn');
   $('#ecoIn').checked?localStorage.setItem('gemini_eco','1'):localStorage.removeItem('gemini_eco');
   if(mo&&validModel(mo))localStorage.setItem('gemini_model',mo);else{localStorage.removeItem('gemini_model');if(mo)toast('Nom de modèle Gemini invalide : champ ignoré')}
   v('#keyIn')?localStorage.setItem('gemini_key',v('#keyIn')):localStorage.removeItem('gemini_key');
-  localStorage.setItem('ai_cfg',JSON.stringify({openai:{key:v('#openaiKey'),model:v('#openaiModel')},groq:{key:v('#grKey'),model:v('#grModel')},openrouter:{key:v('#orKey'),model:v('#orModel')},custom:[0,1,2].map(i=>({label:v('#cuL'+i),url:v('#cuU'+i),key:v('#cuK'+i),model:v('#cuM'+i)}))}));refreshKey()};
+  localStorage.setItem('ai_cfg',JSON.stringify({claude:{key:v('#claudeKey'),model:v('#claudeModel')},openai:{key:v('#openaiKey'),model:v('#openaiModel')},groq:{key:v('#grKey'),model:v('#grModel')},openrouter:{key:v('#orKey'),model:v('#orModel')},custom:[0,1,2].map(i=>({label:v('#cuL'+i),url:v('#cuU'+i),key:v('#cuK'+i),model:v('#cuM'+i)}))}));refreshKey()};
 refreshKey();
 
 /* ---------- Upload ---------- */
@@ -993,6 +997,18 @@ async function gCall({parts,schema,search,maps}){
   if(search){try{return await callGemini({contents:[{parts}],tools:[{google_search:{}}]})}catch(e){if(/→ (429|401|403)/.test(e.message))throw e}}
   return callGemini({contents:[{parts}],generationConfig:{responseMimeType:'application/json',responseSchema:schema}});
 }
+async function claudeCall(P,{parts,schema}){
+  const text=parts.filter(p=>p.text).map(p=>p.text).join('\n\n')+(schema?'\n\nRéponds uniquement avec un objet JSON valide conforme à ce schéma (types en majuscules) : '+JSON.stringify(schema):''),img=parts.find(p=>p.inline_data),content=[{type:'text',text},...(img?[{type:'image',source:{type:'base64',media_type:img.inline_data.mime_type,data:img.inline_data.data}}]:[])],errs=[];
+  for(const model of P.models){
+    let r;try{r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':P.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model,max_tokens:4000,messages:[{role:'user',content}]})})}catch{throw new Error('Anthropic inaccessible depuis ce navigateur (réseau ou autorisation CORS du compte).')}
+    let data={};try{data=await r.json()}catch{}
+    if(r.ok){const answer=(data.content||[]).filter(x=>x.type==='text').map(x=>x.text||'').join('');if(answer)return answer;errs.push(model+' → réponse vide');continue}
+    const detail=String(data.error?.message||'').slice(0,180);
+    if(r.status===401||r.status===403)throw new Error('Claude : clé invalide ou accès navigateur non autorisé. '+detail);
+    errs.push(model+' → '+r.status+' '+detail);
+  }
+  throw new Error(errs.join(' | '));
+}
 async function oaCall(P,{parts,schema}){
   const text=parts.filter(p=>p.text).map(p=>p.text).join('\n\n')+(schema?'\n\nRéponds uniquement avec un objet JSON valide conforme à ce schéma (types en majuscules) : '+JSON.stringify(schema):''),img=parts.find(p=>p.inline_data);
   const content=[{type:'text',text},...(img?[{type:'image_url',image_url:{url:`data:${img.inline_data.mime_type};base64,${img.inline_data.data}`}}]:[])],errs=[],wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
@@ -1001,19 +1017,18 @@ async function oaCall(P,{parts,schema}){
     for(const json of [true,false]){
       for(let attempt=0;attempt<2;attempt++){
         let r;try{r=await fetch(P.url,{method:'POST',headers:{'Content-Type':'application/json',...(P.key?{Authorization:'Bearer '+P.key}:{})},body:JSON.stringify({model:m,messages:[{role:'user',content}],max_tokens:4000,...(json?{response_format:{type:'json_object'}}:{})})})}catch{throw new Error('injoignable (réseau, ou le service refuse les appels depuis un navigateur)')}
-        if(r.ok){const t=(await r.json()).choices?.[0]?.message?.content;if(t)return t;errs.push(m+' → réponse vide');break}
+        if(r.ok){
+          const data=await r.json(),message=data.choices?.[0]?.message,raw=message?.content,t=typeof raw==='string'?raw:Array.isArray(raw)?raw.map(x=>typeof x==='string'?x:(typeof x?.text==='string'?x.text:'')).join(''):'';
+          if(t)return t;
+          errs.push(m+' → réponse vide'+(data.model&&data.model!==m?' ('+data.model+')':''));
+          break;
+        }
         let msg='';try{msg=(await r.json()).error?.message||''}catch{}
         if(r.status===400&&json)break;
         if(r.status===429){
           const retryAfter=Number(r.headers.get('retry-after'));
-          if(attempt===0&&Number.isFinite(retryAfter)&&retryAfter>0&&retryAfter<=10){
-            toast(`${P.name} saturé, nouvel essai dans ${Math.ceil(retryAfter)} s…`);
-            await wait(retryAfter*1000);
-            continue;
-          }
-          errs.push(`${m} → limite de requêtes ${P.name} atteinte. Attends quelques instants ou configure une autre IA.`);
-          rateLimited=true;
-          break;
+          if(attempt===0&&Number.isFinite(retryAfter)&&retryAfter>0&&retryAfter<=10){toast(`${P.name} saturé, nouvel essai dans ${Math.ceil(retryAfter)} s…`);await wait(retryAfter*1000);continue}
+          errs.push(`${m} → limite de requêtes ${P.name} atteinte. Attends quelques instants ou configure une autre IA.`);rateLimited=true;break;
         }
         errs.push(`${m} → ${r.status} ${msg.slice(0,100)}`);
         if(r.status===401||r.status===403)throw new Error(errs.join(' | '));
@@ -1046,7 +1061,7 @@ async function callAI(req){
   const errs=[],list=req.maps?providers().filter(P=>P.id==='gemini'):providers();
   for(const P of list){
     if(failed.has(P.id))continue;
-    try{const t=P.id==='gemini'?await gCall(req):await oaCall(P,req);lastAI=P.name;$('#who').textContent='IA utilisée : '+P.name;return t}
+    try{const t=P.id==='gemini'?await gCall(req):P.id==='claude'?await claudeCall(P,req):await oaCall(P,req);lastAI=P.name;$('#who').textContent='IA utilisée : '+P.name;return t}
     catch(e){failed.add(P.id);errs.push(`${P.name} : ${e.message.slice(0,260)}`);toast(`${P.name} indisponible → IA suivante…`)}
   }
   throw new Error(list.length?'Aucune IA disponible. '+errs.join(' || '):'Aucune clé API configurée. Le mode économique reste gratuit côté Gemini mais nécessite quand même une clé API gratuite.')
