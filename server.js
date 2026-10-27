@@ -175,8 +175,6 @@ const httpServer = http.createServer(async (req, res) => {
     const B = (m === 'POST' || m === 'PATCH') ? await body(req) : {};
     /* ---- comptes ---- */
     if (p === '/api/register' && m === 'POST') {
-      const accountCount = Object.keys(DB.users).length;
-      if (accountCount >= 3) throw E(403, 'Limite atteinte : GeoInt autorise au maximum 3 comptes.');
       const name = String(B.pseudo || '').trim(), key = name.toLowerCase();
       if (!/^[A-Za-z0-9_-]{3,20}$/.test(name)) throw E(400, 'Pseudo : 3 à 20 caractères (lettres, chiffres, _ ou -)');
       if (String(B.password || '').length < 8) throw E(400, 'Mot de passe : 8 caractères minimum');
@@ -185,6 +183,11 @@ const httpServer = http.createServer(async (req, res) => {
       if (DB.users[key]) throw E(409, 'Ce pseudo est déjà pris');
       const salt = crypto.randomBytes(16).toString('hex'); DB.users[key] = { name, salt, hash: hash(B.password, salt), created: Date.now(), roles: key==='lost'?['owner']:['member'], avatar:'', bio:'', premium:key==='lost', nameGradient:'none', serverMuted:false, serverDeafened:false, timeoutUntil:0, stats:{totalSeconds:0,searches:0,peopleFound:0,coursesCompleted:0} };
       log(name, 'inscription'); return token(res, key);
+    }
+    if (p === '/api/logout' && m === 'POST') {
+      const rawToken=String(req.headers.authorization||'').replace(/^Bearer\s+/i,'');
+      if(rawToken){delete DB.sessions[sha(rawToken)];await save();}
+      return J(res,200,{ok:true});
     }
     if (p === '/api/login' && m === 'POST') {
       const key = String(B.pseudo || '').trim().toLowerCase(), k = key + '|' + req.socket.remoteAddress;
